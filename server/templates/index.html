@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Adaptive 2.5D Lidar Mapping — Live Dashboard</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0c0c0f; color:#e8e8ec; font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin:0; padding:20px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 4px; }
+  .sub { color:#9a9aa5; font-size:13px; margin-bottom:16px; }
+  .layout { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+  .map-panel { background:#141418; border-radius:10px; padding:12px; }
+  #mapImg { width:560px; height:560px; border-radius:6px; display:block; image-rendering:pixelated; }
+  .side { display:flex; flex-direction:column; gap:14px; min-width:320px; }
+  .card { background:#141418; border-radius:10px; padding:14px 16px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#9a9aa5; margin:0 0 10px; }
+  .metric-row { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; border-bottom:1px solid #23232a; }
+  .metric-row:last-child { border-bottom:none; }
+  .metric-row span:last-child { color:#fff; font-variant-numeric: tabular-nums; }
+  .big { font-size:30px; font-weight:700; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .swatch { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:right; padding:3px 6px; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:#9a9aa5; font-weight:500; border-bottom:1px solid #2a2a32; }
+  .badge { display:inline-block; background:#1f2a1f; color:#7fd67f; border-radius:5px; padding:1px 7px; font-size:11px; margin-left:8px;}
+  button { background:#23232a; color:#e8e8ec; border:1px solid #34343d; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; }
+  button:hover { background:#2c2c34; }
+</style>
+</head>
+<body>
+  <h1>Adaptive Variable-Resolution 2.5D Lidar Map <span class="badge" id="statusBadge">live</span></h1>
+  <div class="sub">Tiered log-polar grid · fine near ego, coarse at range · dynamic objects as sparse overlay</div>
+
+  <div class="layout">
+    <div class="map-panel">
+      <img id="mapImg" src="" alt="2.5D map">
+      <div class="legend" style="margin-top:10px;">
+        {% for item in legend %}
+        <div class="legend-item"><span class="swatch" style="background:{{ item.color }};"></span>{{ item.name.replace('_',' ') }}</div>
+        {% endfor %}
+        <div class="legend-item"><span class="swatch" style="background:rgb(35,35,40);"></span>low-confidence / unknown</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Performance</h2>
+        <div class="big" id="fpsBig">-- FPS</div>
+        <div class="metric-row"><span>Total frame time</span><span id="totalMs">--</span></div>
+        <div class="metric-row"><span>&nbsp;&nbsp;sense (sim sweep)</span><span id="senseMs">--</span></div>
+        <div class="metric-row"><span>&nbsp;&nbsp;infer (segmentation)</span><span id="inferMs">--</span></div>
+        <div class="metric-row"><span>&nbsp;&nbsp;grid fusion</span><span id="fuseMs">--</span></div>
+        <div class="metric-row"><span>&nbsp;&nbsp;tracking</span><span id="trackMs">--</span></div>
+        <div class="metric-row"><span>&nbsp;&nbsp;render</span><span id="renderMs">--</span></div>
+        <div class="metric-row"><span>Points this frame</span><span id="nPoints">--</span></div>
+        <div class="metric-row"><span>Tracked dynamic objects</span><span id="nObjects">--</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Memory: Adaptive vs. Uniform Grid</h2>
+        <div class="metric-row"><span>Adaptive grid cells</span><span id="adaptCells">--</span></div>
+        <div class="metric-row"><span>Uniform 5cm-grid cells (equiv.)</span><span id="uniCells">--</span></div>
+        <div class="metric-row"><span>Adaptive memory</span><span id="adaptMb">--</span></div>
+        <div class="metric-row"><span>Uniform memory (equiv.)</span><span id="uniMb">--</span></div>
+        <div class="metric-row"><span>Reduction</span><span id="reduction">--</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Accuracy by Range Bucket</h2>
+        <table>
+          <thead><tr><th>Range</th><th>Points</th><th>Acc</th><th>mIoU</th></tr></thead>
+          <tbody id="accBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <button id="resetBtn">Reset simulation</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const img = document.getElementById('mapImg');
+let running = true;
+
+function fmtMs(v){ return v.toFixed(1) + ' ms'; }
+function fmtPct(v){ return v === null ? '—' : (v*100).toFixed(1) + '%'; }
+
+async function tick() {
+  if (!running) return;
+  try {
+    const res = await fetch('/api/frame');
+    const d = await res.json();
+    img.src = 'data:image/png;base64,' + d.image_b64;
+
+    document.getElementById('fpsBig').textContent = d.fps.toFixed(1) + ' FPS';
+    document.getElementById('totalMs').textContent = fmtMs(d.total_ms);
+    document.getElementById('senseMs').textContent = fmtMs(d.latency_ms.sense_ms);
+    document.getElementById('inferMs').textContent = fmtMs(d.latency_ms.infer_ms);
+    document.getElementById('fuseMs').textContent = fmtMs(d.latency_ms.fuse_ms);
+    document.getElementById('trackMs').textContent = fmtMs(d.latency_ms.track_ms);
+    document.getElementById('renderMs').textContent = fmtMs(d.latency_ms.render_ms);
+    document.getElementById('nPoints').textContent = d.n_points.toLocaleString();
+    document.getElementById('nObjects').textContent = d.objects.length;
+
+    const m = d.memory;
+    document.getElementById('adaptCells').textContent = m.adaptive_cells.toLocaleString();
+    document.getElementById('uniCells').textContent = m.uniform_cells.toLocaleString();
+    document.getElementById('adaptMb').textContent = (m.adaptive_bytes/1e6).toFixed(2) + ' MB';
+    document.getElementById('uniMb').textContent = (m.uniform_bytes/1e6).toFixed(1) + ' MB';
+    document.getElementById('reduction').textContent = m.reduction_factor.toFixed(0) + '×';
+
+    const body = document.getElementById('accBody');
+    body.innerHTML = '';
+    d.accuracy_by_range.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row.range}</td><td>${row.n_points}</td><td>${fmtPct(row.accuracy)}</td><td>${fmtPct(row.miou)}</td>`;
+      body.appendChild(tr);
+    });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    if (running) setTimeout(tick, 60);
+  }
+}
+
+document.getElementById('resetBtn').onclick = async () => {
+  await fetch('/api/reset', { method: 'POST' });
+};
+
+tick();
+</script>
+</body>
+</html>
