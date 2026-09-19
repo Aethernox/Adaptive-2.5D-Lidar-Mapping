@@ -60,6 +60,8 @@ def test_pipeline_end_to_end_runs_and_returns_valid_frame():
     out = p.step()
     assert "image_b64" in out and len(out["image_b64"]) > 100
     assert out["n_points"] > 0
+    assert 0 < len(out["point_cloud"]) <= 3600
+    assert all(len(point) == 6 for point in out["point_cloud"][:10])
     assert out["fps"] > 0
     assert out["memory"]["reduction_factor"] > 1
     assert len(out["accuracy_by_range"]) == 4

@@ -30,6 +30,7 @@ from config import (TIERS, N_LAYERS, LAYER_GROUND_H, LAYER_TOP_H, LAYER_CLASS,
 # confidence/point-density layer (a coarse but adequate heuristic: the
 # simulator's point density falls roughly as 1/(1+(r/18)^2), see sim/lidar).
 _EXPECTED_DENSITY_PER_M2 = 6.0
+_TIER_MAX_RANGES = np.array([t["r_max"] for t in TIERS], dtype=np.float32)
 
 
 class VariableResolutionGrid:
@@ -42,6 +43,12 @@ class VariableResolutionGrid:
         # the confidence-weighted majority vote before collapsing to class_id
         self._class_votes = [np.zeros((t["n_rings"], t["n_sectors"], NUM_CLASSES), dtype=np.float32)
                               for t in self.tiers]
+        self._expected_counts = []
+        for t in self.tiers:
+            ring_mid = t["r_min"] + (np.arange(t["n_rings"], dtype=np.float32) + 0.5) * t["dr"]
+            cell_area = ring_mid * t["dr"] * t["dtheta"]
+            expected = np.maximum(cell_area * _EXPECTED_DENSITY_PER_M2, 1e-3)
+            self._expected_counts.append(np.repeat(expected, t["n_sectors"]))
         self._ema_alpha = 0.06  # confidence decay rate for cells with no return this frame
 
     # ------------------------------------------------------------------
@@ -53,18 +60,16 @@ class VariableResolutionGrid:
         tier_idx == -1 marks points outside MAX_RANGE (dropped)."""
         r = np.hypot(x, y)
         theta = np.mod(np.arctan2(y, x), 2 * np.pi)
-        tier_idx = np.full(r.shape, -1, dtype=np.int32)
+        tier_idx = np.searchsorted(_TIER_MAX_RANGES, r, side="right").astype(np.int32)
+        tier_idx[(r < TIERS[0]["r_min"]) | (r >= TIERS[-1]["r_max"])] = -1
         ring = np.zeros(r.shape, dtype=np.int32)
         sector = np.zeros(r.shape, dtype=np.int32)
         for i, t in enumerate(TIERS):
-            m = (r >= t["r_min"]) & (r < t["r_max"]) & (tier_idx == -1)
-            if not np.any(m):
-                continue
-            tier_idx[m] = i
-            ring[m] = np.floor((r[m] - t["r_min"]) / t["dr"]).astype(np.int32)
-            ring[m] = np.clip(ring[m], 0, t["n_rings"] - 1)
-            sector[m] = np.floor(theta[m] / t["dtheta"]).astype(np.int32)
-            sector[m] = np.mod(sector[m], t["n_sectors"])
+            m = tier_idx == i
+            if np.any(m):
+                ring[m] = np.clip(((r[m] - t["r_min"]) / t["dr"]).astype(np.int32),
+                                  0, t["n_rings"] - 1)
+                sector[m] = np.mod((theta[m] / t["dtheta"]).astype(np.int32), t["n_sectors"])
         return tier_idx, ring, sector
 
     # ------------------------------------------------------------------
@@ -112,11 +117,7 @@ class VariableResolutionGrid:
             best_cls = votes.argmax(axis=1)
 
             # Confidence layer: observed density vs expected density at this range
-            ring_mid_r = t["r_min"] + (ring_i.astype(np.float32) + 0.5) * t["dr"]
-            cell_area = (t["r_min"] + (np.arange(t["n_rings"]) + 0.5) * t["dr"]) * t["dr"] * t["dtheta"]
-            expected = np.maximum(cell_area * _EXPECTED_DENSITY_PER_M2, 1e-3)
-            expected_full = np.repeat(expected, t["n_sectors"])
-            conf = np.clip(counts / expected_full, 0, 1)
+            conf = np.clip(counts / self._expected_counts[i], 0, 1)
 
             has_data = counts > 0
             frame_has_data[i] = has_data.reshape(t["n_rings"], t["n_sectors"])
@@ -165,3 +166,37 @@ class VariableResolutionGrid:
         return dict(tier=self.tiers[tier_idx[0]]["name"], ground_height=float(c[LAYER_GROUND_H]),
                     obstacle_top_height=float(c[LAYER_TOP_H]), class_id=int(c[LAYER_CLASS]),
                     confidence=float(c[LAYER_CONF]), point_count=float(c[LAYER_COUNT]))
+
+    def visualization_cells(self, max_cells=3500, min_confidence=0.08):
+        """A bounded view of real populated cells for the browser overlay.
+
+        The processing grid remains entirely server-side; this deliberately
+        sends only observed cells and caps the payload so the diagnostic view
+        cannot become the pipeline's bottleneck.  Each record is the centre
+        of an actual log-polar cell, plus its actual dimensions and layers.
+        """
+        chunks = []
+        for tier_i, tier in enumerate(self.tiers):
+            cells = self.cells[tier_i]
+            occupied = cells[..., LAYER_CONF] >= min_confidence
+            ring, sector = np.nonzero(occupied)
+            if not len(ring):
+                continue
+            radius = tier["r_min"] + (ring.astype(np.float32) + 0.5) * tier["dr"]
+            angle = (sector.astype(np.float32) + 0.5) * tier["dtheta"]
+            vals = cells[ring, sector]
+            chunks.append(np.column_stack((
+                radius * np.cos(angle), radius * np.sin(angle),
+                np.full(len(ring), tier_i),
+                vals[:, LAYER_CLASS], vals[:, LAYER_CONF],
+                np.full(len(ring), tier["dr"]),
+                np.full(len(ring), tier["dtheta"]),
+            )))
+        if not chunks:
+            return []
+        result = np.concatenate(chunks)
+        if len(result) > max_cells:
+            # Evenly distributed selection preserves the radial profile better
+            # than returning only the nearest, densest tier.
+            result = result[np.linspace(0, len(result) - 1, max_cells, dtype=np.int32)]
+        return np.round(result, 3).tolist()

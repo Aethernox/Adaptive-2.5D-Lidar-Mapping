@@ -1,137 +1,33 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Adaptive 2.5D Lidar Mapping — Live Dashboard</title>
-<style>
-  :root { color-scheme: dark; }
-  body { background:#0c0c0f; color:#e8e8ec; font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin:0; padding:20px; }
-  h1 { font-size:18px; font-weight:600; margin:0 0 4px; }
-  .sub { color:#9a9aa5; font-size:13px; margin-bottom:16px; }
-  .layout { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
-  .map-panel { background:#141418; border-radius:10px; padding:12px; }
-  #mapImg { width:560px; height:560px; border-radius:6px; display:block; image-rendering:pixelated; }
-  .side { display:flex; flex-direction:column; gap:14px; min-width:320px; }
-  .card { background:#141418; border-radius:10px; padding:14px 16px; }
-  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:#9a9aa5; margin:0 0 10px; }
-  .metric-row { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; border-bottom:1px solid #23232a; }
-  .metric-row:last-child { border-bottom:none; }
-  .metric-row span:last-child { color:#fff; font-variant-numeric: tabular-nums; }
-  .big { font-size:30px; font-weight:700; }
-  .legend { display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; }
-  .legend-item { display:flex; align-items:center; gap:6px; }
-  .swatch { width:11px; height:11px; border-radius:3px; display:inline-block; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th, td { text-align:right; padding:3px 6px; }
-  th:first-child, td:first-child { text-align:left; }
-  th { color:#9a9aa5; font-weight:500; border-bottom:1px solid #2a2a32; }
-  .badge { display:inline-block; background:#1f2a1f; color:#7fd67f; border-radius:5px; padding:1px 7px; font-size:11px; margin-left:8px;}
-  button { background:#23232a; color:#e8e8ec; border:1px solid #34343d; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; }
-  button:hover { background:#2c2c34; }
-</style>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spatial Intelligence · LiDAR Perception</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
 <body>
-  <h1>Adaptive Variable-Resolution 2.5D Lidar Map <span class="badge" id="statusBadge">live</span></h1>
-  <div class="sub">Tiered log-polar grid · fine near ego, coarse at range · dynamic objects as sparse overlay</div>
-
-  <div class="layout">
-    <div class="map-panel">
-      <img id="mapImg" src="" alt="2.5D map">
-      <div class="legend" style="margin-top:10px;">
-        {% for item in legend %}
-        <div class="legend-item"><span class="swatch" style="background:{{ item.color }};"></span>{{ item.name.replace('_',' ') }}</div>
-        {% endfor %}
-        <div class="legend-item"><span class="swatch" style="background:rgb(35,35,40);"></span>low-confidence / unknown</div>
-      </div>
-    </div>
-
-    <div class="side">
-      <div class="card">
-        <h2>Performance</h2>
-        <div class="big" id="fpsBig">-- FPS</div>
-        <div class="metric-row"><span>Total frame time</span><span id="totalMs">--</span></div>
-        <div class="metric-row"><span>&nbsp;&nbsp;sense (sim sweep)</span><span id="senseMs">--</span></div>
-        <div class="metric-row"><span>&nbsp;&nbsp;infer (segmentation)</span><span id="inferMs">--</span></div>
-        <div class="metric-row"><span>&nbsp;&nbsp;grid fusion</span><span id="fuseMs">--</span></div>
-        <div class="metric-row"><span>&nbsp;&nbsp;tracking</span><span id="trackMs">--</span></div>
-        <div class="metric-row"><span>&nbsp;&nbsp;render</span><span id="renderMs">--</span></div>
-        <div class="metric-row"><span>Points this frame</span><span id="nPoints">--</span></div>
-        <div class="metric-row"><span>Tracked dynamic objects</span><span id="nObjects">--</span></div>
-      </div>
-
-      <div class="card">
-        <h2>Memory: Adaptive vs. Uniform Grid</h2>
-        <div class="metric-row"><span>Adaptive grid cells</span><span id="adaptCells">--</span></div>
-        <div class="metric-row"><span>Uniform 5cm-grid cells (equiv.)</span><span id="uniCells">--</span></div>
-        <div class="metric-row"><span>Adaptive memory</span><span id="adaptMb">--</span></div>
-        <div class="metric-row"><span>Uniform memory (equiv.)</span><span id="uniMb">--</span></div>
-        <div class="metric-row"><span>Reduction</span><span id="reduction">--</span></div>
-      </div>
-
-      <div class="card">
-        <h2>Accuracy by Range Bucket</h2>
-        <table>
-          <thead><tr><th>Range</th><th>Points</th><th>Acc</th><th>mIoU</th></tr></thead>
-          <tbody id="accBody"></tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <button id="resetBtn">Reset simulation</button>
-      </div>
-    </div>
+  <div class="app-shell" id="appShell">
+    <header class="system-bar">
+      <div class="brand"><span class="brand-mark">◉</span><div><div class="eyebrow">SPATIAL INTELLIGENCE</div><h1>3D LiDAR PERCEPTION <span>SYSTEM</span></h1></div></div>
+      <div class="system-readouts"><div><small>DATASET</small><strong>SIMULATED LIDAR</strong></div><div><small>SEQUENCE</small><strong>DETERMINISTIC</strong></div><div><small>FRAME</small><strong id="topFrame">----</strong></div><div><small>SENSOR</small><strong>LIDAR · 360°</strong></div><div class="health"><i></i><small id="statusText">INITIALIZING</small></div></div>
+      <button class="icon-button" id="presentationButton" title="Presentation mode (P)">PRESENT</button>
+    </header>
+    <main class="workstation">
+      <section class="scene-panel technical-panel">
+        <div class="panel-header scene-head"><div><span class="section-index">01</span><span class="panel-title">LIVE SEMANTIC POINT CLOUD</span><span class="panel-sub" id="cloudMeta">AWAITING FRAME</span></div><div class="scene-tools"><div class="segmented" id="renderModes"><button class="active" data-mode="semantic">SEMANTIC</button><button data-mode="intensity">INTENSITY</button><button data-mode="height">HEIGHT</button><button data-mode="distance">DISTANCE</button><button data-mode="dynamic">DYNAMIC</button></div><button class="tool-button" id="resetCamera">RESET VIEW</button></div></div>
+        <div class="viewport" id="viewport"><canvas id="lidarCanvas" aria-label="Interactive LiDAR point cloud"></canvas><canvas id="sceneOverlay" aria-hidden="true"></canvas><div class="orientation"><span class="axis-x">X</span><span class="axis-y">Y</span><span class="axis-z">Z</span><b>↑</b></div><div class="sensor-origin"><b>EGO VEHICLE</b><span>LiDAR ORIGIN · X FORWARD · Y LEFT · Z UP</span></div><div class="viewport-hint">DRAG ORBIT · SHIFT+DRAG PAN · WHEEL ZOOM · DOUBLE CLICK OBJECT</div><div class="camera-rack" id="cameraModes"><button class="active" data-camera="ego">EGO</button><button data-camera="orbit">ORBIT</button><button data-camera="top">TOP</button><button data-camera="front">FRONT</button><button data-camera="rear">REAR</button><button data-camera="free">FREE</button></div></div>
+      </section>
+      <aside class="right-rail">
+        <section class="technical-panel map-panel"><div class="panel-header"><div><span class="section-index">02</span><span class="panel-title">ADAPTIVE 2.5D MAP</span></div><button class="ghost-toggle active" id="gridToggle">GRID ON</button></div><div class="map-wrap"><img id="mapImg" alt="Adaptive grid map from live perception pipeline"><canvas id="mapOverlay"></canvas><div class="map-compass">N<br><span>⌃</span></div></div><div class="map-foot">LOG-POLAR VARIABLE RESOLUTION <span id="mapCells">-- CELLS</span></div></section>
+        <section class="technical-panel inspector-panel collapsible" id="inspectorPanel"><div class="panel-header"><div><span class="section-index">03</span><span class="panel-title">OBJECT INSPECTOR</span></div><button class="collapse" data-collapse="inspectorPanel">−</button></div><div class="panel-content" id="inspectorContent"><div class="empty-inspector">SELECT A TRACKED OBJECT<br><span>CLICK A BOX IN THE 3D VIEW</span></div></div></section>
+        <section class="technical-panel legend-panel"><div class="panel-header"><div><span class="section-index">04</span><span class="panel-title">SEMANTIC LEGEND</span></div><span class="panel-sub">PREDICTED</span></div><div class="legend-grid" id="semanticLegend">{% for item in legend %}<label class="legend-item"><input type="checkbox" checked data-class="{{ loop.index0 }}"><i style="--semantic:{{ item.color }}"></i><span>{{ item.name.replace('_',' ') }}</span></label>{% endfor %}</div></section>
+      </aside>
+      <section class="telemetry technical-panel" id="telemetryPanel"><div class="panel-header"><div><span class="section-index">05</span><span class="panel-title">PERCEPTION TELEMETRY</span></div><div class="telemetry-switch"><button class="active" data-chart="fps">FPS</button><button data-chart="latency">LATENCY</button><button data-chart="points">POINTS</button></div></div><div class="telemetry-body"><div class="metric primary"><small>FRAME RATE</small><strong id="fpsValue">--<em>FPS</em></strong></div><div class="metric"><small>FRAME LATENCY</small><strong id="totalMs">--</strong></div><div class="metric"><small>POINTS / FRAME</small><strong id="nPoints">--</strong></div><div class="metric"><small>INFERENCE</small><strong id="inferMs">--</strong></div><div class="metric"><small>GRID FUSION</small><strong id="fuseMs">--</strong></div><div class="metric"><small>TRACKING</small><strong id="trackMs">--</strong></div><div class="metric"><small>TRACKED</small><strong id="nObjects">--</strong></div><canvas id="telemetryChart" aria-label="Performance history"></canvas></div><div class="stage-line"><span>SENSE <b id="senseMs">--</b></span><span>RENDER <b id="renderMs">--</b></span><span>ADAPTIVE CELLS <b id="adaptCells">--</b></span><span>MEMORY <b id="adaptMb">--</b></span><span>REDUCTION <b id="reduction">--</b></span></div></section>
+      <section class="bottom-controls technical-panel"><div class="playback"><button id="prevFrame" title="Previous cached frame">◀</button><button id="playPause" class="play">❚❚</button><button id="nextFrame" title="Next frame">▶</button><button id="resetBtn">↻</button><div class="frame-readout"><small>FRAME INDEX</small><strong id="frameIndex">----</strong><span>/ LIVE REPLAY</span></div></div><div class="scrub"><input id="frameScrubber" type="range" min="1" max="500" value="1"><input id="jumpFrame" type="number" min="1" max="500" value="1" aria-label="Jump to frame"><button id="jumpButton">JUMP</button></div><div class="control-stack"><label>PLAYBACK <select id="speedSelect"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label><label>POINT SIZE <input id="pointSize" type="range" min="1" max="8" value="3"></label></div><div class="temporal"><small>TEMPORAL ACCUMULATION</small><div id="temporalWindow"><button data-window="1" class="active">1</button><button data-window="5">5</button><button data-window="10">10</button><button data-window="20">20</button><button data-window="50">50</button></div><label><input id="trailsToggle" type="checkbox" checked> MOTION TRAILS</label></div></section>
+      <section class="filters technical-panel collapsible" id="filtersPanel"><div class="panel-header"><div><span class="section-index">06</span><span class="panel-title">PERCEPTION FILTERS</span></div><button class="collapse" data-collapse="filtersPanel">−</button></div><div class="panel-content filter-content"><div><small>DYNAMIC STATE</small><label><input id="staticToggle" type="checkbox" checked> STATIC</label><label><input id="dynamicToggle" type="checkbox" checked> MOVING</label></div><div><small>DISTANCE</small><label><input type="checkbox" data-range="0,10" checked> 0–10M</label><label><input type="checkbox" data-range="10,25" checked> 10–25M</label><label><input type="checkbox" data-range="25,50" checked> 25–50M</label><label><input type="checkbox" data-range="50,100" checked> 50–100M</label></div><div><small>POINT DENSITY</small><select id="densitySelect"><option value="1">FULL</option><option value="2">MEDIUM</option><option value="4">LOW</option></select></div><div class="accuracy"><small>RANGE ACCURACY</small><table><thead><tr><th>RANGE</th><th>ACC</th><th>MIOU</th></tr></thead><tbody id="accBody"></tbody></table></div></div></section>
+    </main>
   </div>
-
-<script>
-const img = document.getElementById('mapImg');
-let running = true;
-
-function fmtMs(v){ return v.toFixed(1) + ' ms'; }
-function fmtPct(v){ return v === null ? '—' : (v*100).toFixed(1) + '%'; }
-
-async function tick() {
-  if (!running) return;
-  try {
-    const res = await fetch('/api/frame');
-    const d = await res.json();
-    img.src = 'data:image/png;base64,' + d.image_b64;
-
-    document.getElementById('fpsBig').textContent = d.fps.toFixed(1) + ' FPS';
-    document.getElementById('totalMs').textContent = fmtMs(d.total_ms);
-    document.getElementById('senseMs').textContent = fmtMs(d.latency_ms.sense_ms);
-    document.getElementById('inferMs').textContent = fmtMs(d.latency_ms.infer_ms);
-    document.getElementById('fuseMs').textContent = fmtMs(d.latency_ms.fuse_ms);
-    document.getElementById('trackMs').textContent = fmtMs(d.latency_ms.track_ms);
-    document.getElementById('renderMs').textContent = fmtMs(d.latency_ms.render_ms);
-    document.getElementById('nPoints').textContent = d.n_points.toLocaleString();
-    document.getElementById('nObjects').textContent = d.objects.length;
-
-    const m = d.memory;
-    document.getElementById('adaptCells').textContent = m.adaptive_cells.toLocaleString();
-    document.getElementById('uniCells').textContent = m.uniform_cells.toLocaleString();
-    document.getElementById('adaptMb').textContent = (m.adaptive_bytes/1e6).toFixed(2) + ' MB';
-    document.getElementById('uniMb').textContent = (m.uniform_bytes/1e6).toFixed(1) + ' MB';
-    document.getElementById('reduction').textContent = m.reduction_factor.toFixed(0) + '×';
-
-    const body = document.getElementById('accBody');
-    body.innerHTML = '';
-    d.accuracy_by_range.forEach(row => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${row.range}</td><td>${row.n_points}</td><td>${fmtPct(row.accuracy)}</td><td>${fmtPct(row.miou)}</td>`;
-      body.appendChild(tr);
-    });
-  } catch (e) {
-    console.error(e);
-  } finally {
-    if (running) setTimeout(tick, 60);
-  }
-}
-
-document.getElementById('resetBtn').onclick = async () => {
-  await fetch('/api/reset', { method: 'POST' });
-};
-
-tick();
-</script>
+  <div id="loadingScreen"><div class="loading-brand">◉ SPATIAL INTELLIGENCE</div><h2>INITIALIZING PERCEPTION ENGINE</h2><p id="loadingStep">CONNECTING TO LIVE PIPELINE…</p><div class="loading-line"><i></i></div></div>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

@@ -43,6 +43,11 @@ class PointSegModel:
         logits = a2 @ self.W3 + self.b3
         return dict(X=X, z1=z1, a1=a1, z2=z2, a2=a2, logits=logits)
 
+    def _logits(self, X):
+        a1 = np.maximum(X @ self.W1 + self.b1, 0)
+        a2 = np.maximum(a1 @ self.W2 + self.b2, 0)
+        return a2 @ self.W3 + self.b3
+
     @staticmethod
     def _softmax(logits):
         m = logits.max(axis=1, keepdims=True)
@@ -58,7 +63,7 @@ class PointSegModel:
         if len(points) == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float32)
         feats = extract_features(points)
-        probs = self.forward_probs(feats)
+        probs = self._softmax(self._logits(feats))
         cls = probs.argmax(axis=1)
         conf = probs.max(axis=1)
         return cls, conf

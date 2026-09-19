@@ -51,6 +51,7 @@ for _t in TIERS:
 
 MAX_RANGE = TIERS[-1]["r_max"]
 RANGE_BUCKETS = [(0, 10), (10, 25), (25, 50), (50, 100)]
+DISPLAY_IMAGE_SIZE = 384
 
 # Uniform-grid baseline used purely for the memory-savings comparison shown
 # on the dashboard (same overall extent and radial cell size as the finest

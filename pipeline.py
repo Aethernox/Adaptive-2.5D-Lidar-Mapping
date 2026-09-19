@@ -18,7 +18,7 @@ import io
 import numpy as np
 from PIL import Image
 
-from config import RANGE_BUCKETS, CLASSES, NUM_CLASSES, DYNAMIC_CLASS_IDS
+from config import RANGE_BUCKETS, CLASSES, NUM_CLASSES, DYNAMIC_CLASS_IDS, TIERS
 from sim.lidar import LidarSimulator
 from perception.model import PointSegModel
 from perception.train import train as train_model, WEIGHTS_PATH
@@ -27,6 +27,7 @@ from mapping.tracker import ObjectTracker
 from mapping.rasterizer import GridRasterizer
 
 SIM_DT = 0.45  # seconds of simulated ego motion per pipeline step
+MAX_CLOUD_POINTS = 3600
 
 
 def _load_or_train_model():
@@ -94,9 +95,16 @@ class Pipeline:
         return dict(
             frame_idx=self.frame_idx,
             image_b64=self._encode_png(img),
+            point_cloud=self._point_cloud_payload(points, pred_cls, pred_conf),
             ego=dict(x=frame["ego_x"], y=frame["ego_y"], heading=frame["heading"]),
             n_points=int(len(points)),
             objects=objects,
+            adaptive_grid=dict(
+                scheme="tiered_log_polar",
+                cells=self.grid.visualization_cells(),
+                tiers=[dict(name=t["name"], r_min=t["r_min"], r_max=t["r_max"],
+                            dr=t["dr"], n_sectors=t["n_sectors"]) for t in TIERS],
+            ),
             latency_ms=stage_t,
             total_ms=total_ms,
             fps=fps,
@@ -110,6 +118,21 @@ class Pipeline:
         buf = io.BytesIO()
         Image.fromarray(img_array, mode="RGB").save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("ascii")
+
+    @staticmethod
+    def _point_cloud_payload(points, class_ids, confidences):
+        """Return a bounded, JSON-friendly point sample for the live 3D view."""
+        if len(points) <= MAX_CLOUD_POINTS:
+            indices = np.arange(len(points))
+        else:
+            indices = np.linspace(0, len(points) - 1, MAX_CLOUD_POINTS, dtype=np.int32)
+        sampled = points[indices, :3]
+        return np.column_stack((
+            np.round(sampled, 2),
+            class_ids[indices].astype(np.int16),
+            np.round(confidences[indices], 3),
+            np.round(points[indices, 3], 3),
+        )).tolist()
 
     def _range_bucket_accuracy(self, points, pred_cls, true_labels):
         r = np.hypot(points[:, 0], points[:, 1])

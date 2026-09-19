@@ -33,10 +33,16 @@ auto-train on first run if this file is missing, so this step is optional.
 python3 -m server.app
 ```
 
-Open **http://localhost:5050**. Each page load / poll advances the
-simulated ego vehicle one step and re-renders the 2.5D map with live FPS,
-per-stage latency, adaptive-vs-uniform memory footprint, and range-bucketed
-accuracy.
+Open **http://localhost:5050**. Each poll advances the simulated ego vehicle
+one step and updates an interactive WebGL semantic point cloud plus the
+adaptive 2.5D map. Drag the point-cloud viewport to orbit and use the wheel to
+zoom. Live FPS, per-stage latency, adaptive-vs-uniform memory footprint,
+tracked objects, and range-bucketed accuracy are shown beside the views.
+
+The display raster uses a 384 px backend image that is upscaled to the
+dashboard's 560 px presentation size. This keeps the adaptive grid's full
+mapping resolution intact while reducing render and PNG-transfer cost; the
+resolution is configurable as `config.DISPLAY_IMAGE_SIZE`.
 
 ## 3. Run the offline range-bucketed evaluation
 

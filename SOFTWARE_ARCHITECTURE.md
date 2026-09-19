@@ -130,7 +130,7 @@ scale (see "Implementation Rules": avoid unnecessary infrastructure).
 | **Tracker** | `mapping/tracker.py` | Clusters dynamic-class points, tracks centroids frame-to-frame, returns the sparse object overlay. |
 | **Rasterizer** | `mapping/rasterizer.py` | Grid + objects → RGB image, using a precomputed pixel→cell lookup table (built once, O(pixels) per frame). |
 | **Pipeline** | `pipeline.py` | Orchestrates one frame end-to-end, times each stage, computes accuracy/memory/FPS, returns the API response payload. |
-| **Dashboard** | `server/app.py`, `server/templates/index.html` | Flask endpoints + polling JS front end. |
+| **Dashboard** | `server/app.py`, `server/templates/index.html` | Flask endpoints + polling JS front end; WebGL semantic point-cloud view, orbit/zoom controls, and adaptive 2.5D map. |
 | **Evaluation** | `evaluate.py` | Offline range-bucketed accuracy/mIoU + memory report on held-out frames. |
 | **Tests** | `tests/`, `run_tests.py` | Unit tests; `run_tests.py` is a pytest-compatible fallback runner (no `pytest` available offline). |
 
@@ -169,7 +169,7 @@ Kept as a small Python list, never written into the dense grid.
 **API response** (`GET /api/frame`):
 ```json
 {
-  "frame_idx": 12, "image_b64": "...", "ego": {"x":.., "y":.., "heading":..},
+   "frame_idx": 12, "image_b64": "...", "point_cloud": [[x,y,z,class,confidence], ...], "ego": {"x":.., "y":.., "heading":..},
   "n_points": 10248, "objects": [ ... ], "latency_ms": {"sense_ms":.., "infer_ms":.., "fuse_ms":.., "track_ms":.., "render_ms":..},
   "total_ms": 55.1, "fps": 18.1,
   "memory": {"adaptive_cells":.., "adaptive_bytes":.., "uniform_cells":.., "uniform_bytes":.., "reduction_factor":..},
@@ -322,3 +322,12 @@ prototype complete (not just asserted):
 - [x] Memory comparison: **~157× reduction** (≈2.04 MB adaptive vs. ≈320 MB uniform-grid equivalent) — the explicit "significant reduction" the dashboard requirement asks for.
 - [x] `python3 run_tests.py` — **11/11 tests pass**, covering grid addressing/seams/memory, model, sim, tracker, and full pipeline execution.
 - [x] No placeholder/TODO logic remains in any core-path module (`sim`, `perception`, `mapping`, `pipeline`, `server`).
+
+### Performance tuning note
+
+The prototype keeps mapping resolution independent from dashboard resolution.
+The rasterizer precomputes pixel-to-cell indices and range-ring coordinates,
+the grid precomputes per-cell density expectations and uses direct range-bin
+lookup, and the dashboard defaults to a 384 px PNG displayed at 560 px CSS
+size. On the reference Windows CPU run this reduced mean end-to-end frame
+time from about 174 ms to about 84 ms while all 11 tests continued to pass.

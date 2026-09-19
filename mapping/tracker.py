@@ -26,7 +26,7 @@ class ObjectTracker:
         self.tracks = {}  # id -> dict(x,y,vx,vy,kind,last_t,age)
         self._next_id = 0
 
-    def _cluster(self, x, y, cls):
+    def _cluster(self, x, y, z, cls):
         if len(x) == 0:
             return []
         gx = np.floor((x - x.min()) / CLUSTER_CELL).astype(int)
@@ -50,13 +50,14 @@ class ObjectTracker:
                 n_points=int(m.sum()),
                 w=float(x[m].max() - x[m].min()) or 0.5,
                 d=float(y[m].max() - y[m].min()) or 0.5,
+                z_min=float(z[m].min()), z_max=float(z[m].max()),
             ))
         return clusters
 
     def update(self, points, class_ids, t, dt):
         dyn_mask = np.isin(class_ids, list(DYNAMIC_CLASS_IDS))
-        x, y = points[dyn_mask, 0], points[dyn_mask, 1]
-        clusters = self._cluster(x, y, class_ids[dyn_mask])
+        x, y, z = points[dyn_mask, 0], points[dyn_mask, 1], points[dyn_mask, 2]
+        clusters = self._cluster(x, y, z, class_ids[dyn_mask])
 
         unmatched_tracks = set(self.tracks.keys())
         for c in clusters:
@@ -78,12 +79,14 @@ class ObjectTracker:
                 tr["vx"] = 0.6 * tr["vx"] + 0.4 * vx
                 tr["vy"] = 0.6 * tr["vy"] + 0.4 * vy
                 tr.update(x=c["x"], y=c["y"], w=c["w"], d=c["d"],
+                          z_min=c["z_min"], z_max=c["z_max"],
                           last_t=t, age=tr["age"] + 1, misses=0)
                 unmatched_tracks.discard(best_id)
             else:
                 tid = self._next_id; self._next_id += 1
                 self.tracks[tid] = dict(x=c["x"], y=c["y"], vx=0.0, vy=0.0,
                                          kind=c["kind"], w=c["w"], d=c["d"],
+                                         z_min=c["z_min"], z_max=c["z_max"],
                                          last_t=t, age=1, misses=0)
 
         # age out tracks that went unmatched this frame

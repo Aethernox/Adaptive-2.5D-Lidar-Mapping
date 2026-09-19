@@ -8,11 +8,11 @@ startup, so per-frame rendering is a handful of vectorized fancy-index
 gathers, not a per-pixel Python loop.
 """
 import numpy as np
-from config import (TIERS, MAX_RANGE, CLASS_COLORS, UNKNOWN_COLOR, EMPTY_COLOR,
+from config import (TIERS, MAX_RANGE, DISPLAY_IMAGE_SIZE, CLASS_COLORS, UNKNOWN_COLOR, EMPTY_COLOR,
                      LAYER_GROUND_H, LAYER_TOP_H, LAYER_CLASS, LAYER_CONF, LAYER_COUNT)
 from mapping.grid_engine import VariableResolutionGrid
 
-IMG_SIZE = 640  # pixels, square, covers [-MAX_RANGE, MAX_RANGE] in x and y
+IMG_SIZE = DISPLAY_IMAGE_SIZE  # pixels, square, covers [-MAX_RANGE, MAX_RANGE]
 
 CONF_EMPTY_THRESH = 0.03
 CONF_UNKNOWN_THRESH = 0.22
@@ -32,41 +32,46 @@ class GridRasterizer:
         self.ring = ring
         self.sector = sector
         self.in_range = tier_idx >= 0
-        # cache per-tier boolean pixel masks
-        self.tier_masks = [(tier_idx == i) for i in range(len(TIERS))]
+        self._pixel_indices = []
+        self._cell_indices = []
+        flat_tiers = tier_idx.ravel()
+        flat_rings = ring.ravel()
+        flat_sectors = sector.ravel()
+        for i, t in enumerate(TIERS):
+            pixel_indices = np.flatnonzero(flat_tiers == i)
+            self._pixel_indices.append(pixel_indices)
+            self._cell_indices.append(flat_rings[pixel_indices] * t["n_sectors"] + flat_sectors[pixel_indices])
         # class -> color LUT (for fast vectorized gather)
         self.color_lut = np.array([CLASS_COLORS[c] for c in sorted(CLASS_COLORS)], dtype=np.float32)
+        self._ring_pixels = [self._build_ring_pixels(t["r_max"]) for t in TIERS]
 
     def render(self, grid: VariableResolutionGrid, dynamic_objects=None):
         H = W = self.img_size
         img = np.zeros((H, W, 3), dtype=np.uint8)
         img[:, :] = (10, 10, 12)  # out-of-range background
 
-        conf_full = np.zeros((H, W), dtype=np.float32)
-        cls_full = np.zeros((H, W), dtype=np.int32)
-        top_h_full = np.full((H, W), np.nan, dtype=np.float32)
-        ground_h_full = np.full((H, W), np.nan, dtype=np.float32)
+        flat_img = img.reshape(-1, 3)
+        conf_full = np.zeros(H * W, dtype=np.float32)
+        cls_full = np.zeros(H * W, dtype=np.int32)
+        top_h_full = np.full(H * W, np.nan, dtype=np.float32)
 
         for i, t in enumerate(TIERS):
-            mask = self.tier_masks[i]
-            if not np.any(mask):
+            pixels = self._pixel_indices[i]
+            if pixels.size == 0:
                 continue
-            ring_i = self.ring[mask]
-            sec_i = self.sector[mask]
             cells = grid.cells[i]  # (n_rings, n_sectors, N_LAYERS)
-            vals = cells[ring_i, sec_i]  # (Npix, N_LAYERS)
-            conf_full[mask] = vals[:, LAYER_CONF]
-            cls_full[mask] = vals[:, LAYER_CLASS].astype(np.int32)
-            top_h_full[mask] = vals[:, LAYER_TOP_H]
-            ground_h_full[mask] = vals[:, LAYER_GROUND_H]
+            vals = cells.reshape(-1, cells.shape[-1])[self._cell_indices[i]]
+            conf_full[pixels] = vals[:, LAYER_CONF]
+            cls_full[pixels] = vals[:, LAYER_CLASS].astype(np.int32)
+            top_h_full[pixels] = vals[:, LAYER_TOP_H]
 
-        in_range = self.in_range
+        in_range = self.in_range.ravel()
         known = in_range & (conf_full >= CONF_UNKNOWN_THRESH)
         low_conf = in_range & (conf_full >= CONF_EMPTY_THRESH) & (conf_full < CONF_UNKNOWN_THRESH)
         empty = in_range & (conf_full < CONF_EMPTY_THRESH)
 
-        img[empty] = EMPTY_COLOR
-        img[low_conf] = UNKNOWN_COLOR
+        flat_img[empty] = EMPTY_COLOR
+        flat_img[low_conf] = UNKNOWN_COLOR
 
         if np.any(known):
             base = self.color_lut[np.clip(cls_full[known], 0, len(self.color_lut) - 1)]
@@ -75,11 +80,11 @@ class GridRasterizer:
             h = np.nan_to_num(top_h_full[known], nan=0.0)
             shade = np.clip(1.0 + 0.06 * h, 0.75, 1.3)[:, None]
             colored = np.clip(base * brightness * shade, 0, 255).astype(np.uint8)
-            img[known] = colored
+            flat_img[known] = colored
 
         # grid tier boundary rings (faint) for visual reference
-        for t in TIERS:
-            self._draw_range_ring(img, t["r_max"])
+        for rows, cols in self._ring_pixels:
+            img[rows, cols] = (70, 70, 75)
 
         # ego marker
         cx = cy = self.img_size // 2
@@ -97,13 +102,15 @@ class GridRasterizer:
         return col, row
 
     def _draw_range_ring(self, img, r, color=(70, 70, 75)):
-        theta = np.linspace(0, 2 * np.pi, 360)
-        xs = r * np.cos(theta)
-        ys = r * np.sin(theta)
-        for x, y in zip(xs, ys):
-            col, row = self.world_to_px(x, y)
-            if 0 <= row < img.shape[0] and 0 <= col < img.shape[1]:
-                img[row, col] = color
+        rows, cols = self._build_ring_pixels(r)
+        img[rows, cols] = color
+
+    def _build_ring_pixels(self, r):
+        theta = np.linspace(0, 2 * np.pi, 720, endpoint=False)
+        cols = ((r * np.cos(theta) + MAX_RANGE) / (2 * MAX_RANGE) * self.img_size).astype(np.int32)
+        rows = ((MAX_RANGE - r * np.sin(theta)) / (2 * MAX_RANGE) * self.img_size).astype(np.int32)
+        valid = (rows >= 0) & (rows < self.img_size) & (cols >= 0) & (cols < self.img_size)
+        return rows[valid], cols[valid]
 
     def _draw_objects(self, img, objects):
         for obj in objects:
