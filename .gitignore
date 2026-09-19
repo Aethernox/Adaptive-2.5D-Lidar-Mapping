@@ -1,0 +1,70 @@
+# Python bytecode and interpreter caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and local configuration / secrets
+.venv/
+venv/
+env/
+ENV/
+.env
+.env/
+.env.*
+!.env.example
+
+# Test, coverage, lint, type-check, and notebook caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.ipynb_checkpoints/
+
+# Build, packaging, and runtime output
+build/
+dist/
+site/
+*.egg-info/
+.eggs/
+instance/
+*.log
+*.pid
+*.prof
+*.sqlite3
+
+# Generated perception artifacts and local datasets
+perception/weights.npz
+checkpoints/
+artifacts/
+outputs/
+data/
+datasets/
+
+# Frontend package and build caches (if a frontend toolchain is added)
+node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+.parcel-cache/
+.next/
+.vite/
+
+# Editors and operating-system files
+.vscode/
+.idea/
+*.code-workspace
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+.DS_Store
+Thumbs.db
+Desktop.ini
