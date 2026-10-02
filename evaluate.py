@@ -6,6 +6,7 @@ range from training).
 
 Run: python3 evaluate.py
 """
+import argparse
 import time
 import numpy as np
 
@@ -75,4 +76,13 @@ def evaluate(n_frames=25, seed=999):
 
 
 if __name__ == "__main__":
-    evaluate()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--dataset", choices=("synthetic", "kitti"), default="synthetic")
+    args, remaining = parser.parse_known_args()
+    if args.dataset == "kitti":
+        from evaluate_kitti import main as kitti_main
+        import sys
+        sys.argv = [sys.argv[0], *remaining]
+        kitti_main()
+    else:
+        evaluate()

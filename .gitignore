@@ -45,7 +45,8 @@ perception/weights.npz
 checkpoints/
 artifacts/
 outputs/
-data/
+data/datasets/
+dataset/
 datasets/
 
 # Frontend package and build caches (if a frontend toolchain is added)

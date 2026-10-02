@@ -1,33 +1,364 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spatial Intelligence · LiDAR Perception</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spatial Intelligence · Adaptive 2.5D LiDAR Perception</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
 <body>
   <div class="app-shell" id="appShell">
+    <!-- Top System Header Bar -->
     <header class="system-bar">
-      <div class="brand"><span class="brand-mark">◉</span><div><div class="eyebrow">SPATIAL INTELLIGENCE</div><h1>3D LiDAR PERCEPTION <span>SYSTEM</span></h1></div></div>
-      <div class="system-readouts"><div><small>DATASET</small><strong>SIMULATED LIDAR</strong></div><div><small>SEQUENCE</small><strong>DETERMINISTIC</strong></div><div><small>FRAME</small><strong id="topFrame">----</strong></div><div><small>SENSOR</small><strong>LIDAR · 360°</strong></div><div class="health"><i></i><small id="statusText">INITIALIZING</small></div></div>
-      <button class="icon-button" id="presentationButton" title="Presentation mode (P)">PRESENT</button>
+      <div class="brand">
+        <span class="brand-mark">◉</span>
+        <div>
+          <div class="eyebrow">SPATIAL INTELLIGENCE · AUTONOMOUS PERCEPTION</div>
+          <h1>3D LiDAR & ADAPTIVE 2.5D MAPPING <span>SYSTEM</span></h1>
+        </div>
+      </div>
+      
+      <div class="system-readouts">
+        <div><small>DATASET</small><strong id="datasetValue">CITY ROAD NETWORK</strong></div>
+        <div><small>STREET</small><strong id="streetNameValue" class="glow-val">GRAND AVENUE</strong></div>
+        <div><small>FRAME</small><strong id="topFrame" class="glow-val">----</strong></div>
+        <div><small>SENSOR</small><strong id="sensorValue">360° SPINNING LiDAR</strong></div>
+        <div><small>OBSTACLES</small><strong id="topObstacleCount" class="glow-val">-- OBJECTS</strong></div>
+        <div class="health"><i></i><small id="statusText">INITIALIZING ENGINE</small></div>
+      </div>
+
+      <div class="header-actions">
+        <button class="icon-button active" id="scanBeamToggle" title="Toggle 360° Laser Scan Beam">SCANNER ON</button>
+        <button class="icon-button" id="presentationButton" title="Presentation Mode (Press P)">PRESENT</button>
+      </div>
     </header>
+
+    <!-- Main Workstation Layout -->
     <main class="workstation">
+      <!-- Section 01: 3D Point Cloud Viewport -->
       <section class="scene-panel technical-panel">
-        <div class="panel-header scene-head"><div><span class="section-index">01</span><span class="panel-title">LIVE SEMANTIC POINT CLOUD</span><span class="panel-sub" id="cloudMeta">AWAITING FRAME</span></div><div class="scene-tools"><div class="segmented" id="renderModes"><button class="active" data-mode="semantic">SEMANTIC</button><button data-mode="intensity">INTENSITY</button><button data-mode="height">HEIGHT</button><button data-mode="distance">DISTANCE</button><button data-mode="dynamic">DYNAMIC</button></div><button class="tool-button" id="resetCamera">RESET VIEW</button></div></div>
-        <div class="viewport" id="viewport"><canvas id="lidarCanvas" aria-label="Interactive LiDAR point cloud"></canvas><canvas id="sceneOverlay" aria-hidden="true"></canvas><div class="orientation"><span class="axis-x">X</span><span class="axis-y">Y</span><span class="axis-z">Z</span><b>↑</b></div><div class="sensor-origin"><b>EGO VEHICLE</b><span>LiDAR ORIGIN · X FORWARD · Y LEFT · Z UP</span></div><div class="viewport-hint">DRAG ORBIT · SHIFT+DRAG PAN · WHEEL ZOOM · DOUBLE CLICK OBJECT</div><div class="camera-rack" id="cameraModes"><button class="active" data-camera="ego">EGO</button><button data-camera="orbit">ORBIT</button><button data-camera="top">TOP</button><button data-camera="front">FRONT</button><button data-camera="rear">REAR</button><button data-camera="free">FREE</button></div></div>
+        <div class="panel-header scene-head">
+          <div class="head-title-wrap">
+            <span class="section-index">01</span>
+            <span class="panel-title">3D REAL-TIME POINT CLOUD WORKSTATION</span>
+            <span class="panel-sub" id="cloudMeta">HIGH-DENSITY SURFACE SCAN</span>
+          </div>
+          <div class="scene-tools">
+            <div class="segmented" id="renderModes" role="tablist">
+              <button class="active" data-mode="prediction">PREDICTION</button>
+              <button data-mode="ground_truth" id="groundTruthMode" disabled>GROUND TRUTH</button>
+              <button data-mode="error" id="errorMode" disabled>ERROR / CONF</button>
+              <button data-mode="intensity">INTENSITY</button>
+              <button data-mode="height">ELEVATION</button>
+              <button data-mode="distance">RANGE</button>
+              <button data-mode="dynamic">MOTION</button>
+              <button data-mode="hazard">COLLISION RISK</button>
+            </div>
+            <button class="tool-button" id="resetCamera">RESET VIEW</button>
+          </div>
+        </div>
+
+        <div class="viewport" id="viewport">
+          <canvas id="lidarCanvas" aria-label="Interactive 3D LiDAR Point Cloud"></canvas>
+          <canvas id="sceneOverlay" aria-hidden="true"></canvas>
+
+          <!-- 3D Viewport Orientation Gizmo -->
+          <div class="orientation" title="Vehicle Coordinate Frame">
+            <span class="axis-x">+X FWD</span>
+            <span class="axis-y">+Y LEFT</span>
+            <span class="axis-z">+Z UP</span>
+            <b>↑</b>
+          </div>
+
+          <!-- Real-Time Autonomy Decision & Navigation HUD Banner -->
+          <div class="autonomy-hud" id="autonomyHud">
+            <div class="hud-main-decision">
+              <span class="hud-pulse-dot"></span>
+              <span class="hud-label">AUTONOMOUS DECISION & NAVIGATION</span>
+              <strong id="decisionText">CRUISING GRAND AVENUE</strong>
+            </div>
+            <div class="hud-metrics">
+              <div><small>STREET</small><b id="hudStreet">GRAND AVE</b></div>
+              <div><small>STEERING</small><b id="steerValue">0.0°</b></div>
+              <div><small>SPEED</small><b id="speedValue">15.1 KM/H</b></div>
+              <div><small>TRAJECTORY</small><b class="corridor-safe">COLLISION-FREE</b></div>
+            </div>
+          </div>
+
+          <!-- Ego Vehicle Origin Banner -->
+          <div class="sensor-origin">
+            <b>SOLID 3D EGO VEHICLE</b>
+            <span>AUTONOMOUS NAV CORE · ACTIVE COLLISION AVOIDANCE</span>
+          </div>
+
+          <!-- Interactive Viewport Navigation Hint -->
+          <div class="viewport-hint">
+            <span>🖱️ LEFT DRAG: ORBIT</span> · <span>SHIFT+DRAG: PAN</span> · <span>WHEEL: ZOOM</span> · <span>CLICK 3D TARGET: INSPECT</span>
+          </div>
+
+          <!-- Camera Selection Rack -->
+          <div class="camera-rack" id="cameraModes">
+            <button class="active" data-camera="ego">EGO FOLLOW</button>
+            <button data-camera="orbit">ORBIT 360°</button>
+            <button data-camera="top">TOP (BEV)</button>
+            <button data-camera="front">CHASE FRONT</button>
+            <button data-camera="rear">REAR CAM</button>
+            <button data-camera="free">FREE CAM</button>
+          </div>
+        </div>
       </section>
+
+      <!-- Right Rail: 2.5D Map, Inspector, Legend -->
       <aside class="right-rail">
-        <section class="technical-panel map-panel"><div class="panel-header"><div><span class="section-index">02</span><span class="panel-title">ADAPTIVE 2.5D MAP</span></div><button class="ghost-toggle active" id="gridToggle">GRID ON</button></div><div class="map-wrap"><img id="mapImg" alt="Adaptive grid map from live perception pipeline"><canvas id="mapOverlay"></canvas><div class="map-compass">N<br><span>⌃</span></div></div><div class="map-foot">LOG-POLAR VARIABLE RESOLUTION <span id="mapCells">-- CELLS</span></div></section>
-        <section class="technical-panel inspector-panel collapsible" id="inspectorPanel"><div class="panel-header"><div><span class="section-index">03</span><span class="panel-title">OBJECT INSPECTOR</span></div><button class="collapse" data-collapse="inspectorPanel">−</button></div><div class="panel-content" id="inspectorContent"><div class="empty-inspector">SELECT A TRACKED OBJECT<br><span>CLICK A BOX IN THE 3D VIEW</span></div></div></section>
-        <section class="technical-panel legend-panel"><div class="panel-header"><div><span class="section-index">04</span><span class="panel-title">SEMANTIC LEGEND</span></div><span class="panel-sub">PREDICTED</span></div><div class="legend-grid" id="semanticLegend">{% for item in legend %}<label class="legend-item"><input type="checkbox" checked data-class="{{ loop.index0 }}"><i style="--semantic:{{ item.color }}"></i><span>{{ item.name.replace('_',' ') }}</span></label>{% endfor %}</div></section>
+        <!-- Section 02: 2.5D Adaptive Grid Map -->
+        <section class="technical-panel map-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-index">02</span>
+              <span class="panel-title">2.5D ADAPTIVE GRID MAP</span>
+            </div>
+            <div class="map-actions">
+              <button class="ghost-toggle active" id="gridToggle">POLAR RINGS</button>
+            </div>
+          </div>
+          <div class="map-wrap" id="mapWrap">
+            <img id="mapImg" alt="Adaptive 2.5D Grid Map">
+            <canvas id="mapOverlay"></canvas>
+            <div class="map-compass">N<br><span>⌃</span></div>
+            <div class="map-hover-hud" id="mapHoverHud">HOVER GRID CELL</div>
+          </div>
+          <div class="map-foot">
+            <span>LOG-POLAR VARIABLE TIERS</span>
+            <span id="mapCells" class="glow-val">-- CELLS</span>
+          </div>
+        </section>
+
+        <!-- Section 03: Interactive Object & Obstacle Inspector -->
+        <section class="technical-panel inspector-panel collapsible" id="inspectorPanel">
+          <div class="panel-header">
+            <div>
+              <span class="section-index">03</span>
+              <span class="panel-title">OBJECT & OBSTACLE INSPECTOR</span>
+            </div>
+            <button class="collapse" data-collapse="inspectorPanel" aria-label="Toggle panel">−</button>
+          </div>
+          <div class="panel-content" id="inspectorContent">
+            <div class="empty-inspector">
+              <span class="empty-icon">🎯</span>
+              SELECT ANY TRACKED OBJECT OR OBSTACLE
+              <small>CLICK A 3D BOUNDING BOX OR 2.5D MAP TARGET</small>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 04: Semantic Class Legend & Filters -->
+        <section class="technical-panel legend-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-index">04</span>
+              <span class="panel-title">SEMANTIC ONTOLOGY</span>
+            </div>
+            <span class="panel-sub">TOGGLE LAYERS</span>
+          </div>
+          <div class="legend-grid" id="semanticLegend">
+            {% for item in legend %}
+            <label class="legend-item" title="Toggle visibility of {{ item.name }}">
+              <input type="checkbox" checked data-class="{{ loop.index0 }}">
+              <i style="--semantic:{{ item.color }}"></i>
+              <span>{{ item.name.replace('_',' ') }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </section>
       </aside>
-      <section class="telemetry technical-panel" id="telemetryPanel"><div class="panel-header"><div><span class="section-index">05</span><span class="panel-title">PERCEPTION TELEMETRY</span></div><div class="telemetry-switch"><button class="active" data-chart="fps">FPS</button><button data-chart="latency">LATENCY</button><button data-chart="points">POINTS</button></div></div><div class="telemetry-body"><div class="metric primary"><small>FRAME RATE</small><strong id="fpsValue">--<em>FPS</em></strong></div><div class="metric"><small>FRAME LATENCY</small><strong id="totalMs">--</strong></div><div class="metric"><small>POINTS / FRAME</small><strong id="nPoints">--</strong></div><div class="metric"><small>INFERENCE</small><strong id="inferMs">--</strong></div><div class="metric"><small>GRID FUSION</small><strong id="fuseMs">--</strong></div><div class="metric"><small>TRACKING</small><strong id="trackMs">--</strong></div><div class="metric"><small>TRACKED</small><strong id="nObjects">--</strong></div><canvas id="telemetryChart" aria-label="Performance history"></canvas></div><div class="stage-line"><span>SENSE <b id="senseMs">--</b></span><span>RENDER <b id="renderMs">--</b></span><span>ADAPTIVE CELLS <b id="adaptCells">--</b></span><span>MEMORY <b id="adaptMb">--</b></span><span>REDUCTION <b id="reduction">--</b></span></div></section>
-      <section class="bottom-controls technical-panel"><div class="playback"><button id="prevFrame" title="Previous cached frame">◀</button><button id="playPause" class="play">❚❚</button><button id="nextFrame" title="Next frame">▶</button><button id="resetBtn">↻</button><div class="frame-readout"><small>FRAME INDEX</small><strong id="frameIndex">----</strong><span>/ LIVE REPLAY</span></div></div><div class="scrub"><input id="frameScrubber" type="range" min="1" max="500" value="1"><input id="jumpFrame" type="number" min="1" max="500" value="1" aria-label="Jump to frame"><button id="jumpButton">JUMP</button></div><div class="control-stack"><label>PLAYBACK <select id="speedSelect"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label><label>POINT SIZE <input id="pointSize" type="range" min="1" max="8" value="3"></label></div><div class="temporal"><small>TEMPORAL ACCUMULATION</small><div id="temporalWindow"><button data-window="1" class="active">1</button><button data-window="5">5</button><button data-window="10">10</button><button data-window="20">20</button><button data-window="50">50</button></div><label><input id="trailsToggle" type="checkbox" checked> MOTION TRAILS</label></div></section>
-      <section class="filters technical-panel collapsible" id="filtersPanel"><div class="panel-header"><div><span class="section-index">06</span><span class="panel-title">PERCEPTION FILTERS</span></div><button class="collapse" data-collapse="filtersPanel">−</button></div><div class="panel-content filter-content"><div><small>DYNAMIC STATE</small><label><input id="staticToggle" type="checkbox" checked> STATIC</label><label><input id="dynamicToggle" type="checkbox" checked> MOVING</label></div><div><small>DISTANCE</small><label><input type="checkbox" data-range="0,10" checked> 0–10M</label><label><input type="checkbox" data-range="10,25" checked> 10–25M</label><label><input type="checkbox" data-range="25,50" checked> 25–50M</label><label><input type="checkbox" data-range="50,100" checked> 50–100M</label></div><div><small>POINT DENSITY</small><select id="densitySelect"><option value="1">FULL</option><option value="2">MEDIUM</option><option value="4">LOW</option></select></div><div class="accuracy"><small>RANGE ACCURACY</small><table><thead><tr><th>RANGE</th><th>ACC</th><th>MIOU</th></tr></thead><tbody id="accBody"></tbody></table></div></div></section>
+
+      <!-- Section 05: Perception Telemetry & Performance Analytics -->
+      <section class="telemetry technical-panel" id="telemetryPanel">
+        <div class="panel-header">
+          <div>
+            <span class="section-index">05</span>
+            <span class="panel-title">PERCEPTION TELEMETRY & LATENCY PROFILER</span>
+          </div>
+          <div class="telemetry-switch">
+            <button class="active" data-chart="fps">FPS</button>
+            <button data-chart="latency">LATENCY (MS)</button>
+            <button data-chart="points">POINTS</button>
+            <button data-chart="objects">OBSTACLES</button>
+          </div>
+        </div>
+        <div class="telemetry-body">
+          <div class="metric primary">
+            <small>FRAME RATE</small>
+            <strong id="fpsValue">--<em>FPS</em></strong>
+          </div>
+          <div class="metric">
+            <small>TOTAL LATENCY</small>
+            <strong id="totalMs">--</strong>
+          </div>
+          <div class="metric">
+            <small>POINTS / FRAME</small>
+            <strong id="nPoints">--</strong>
+          </div>
+          <div class="metric">
+            <small>MODEL INFERENCE</small>
+            <strong id="inferMs">--</strong>
+          </div>
+          <div class="metric">
+            <small>2.5D GRID FUSION</small>
+            <strong id="fuseMs">--</strong>
+          </div>
+          <div class="metric">
+            <small>OBJECT TRACKING</small>
+            <strong id="trackMs">--</strong>
+          </div>
+          <div class="metric">
+            <small>ACTIVE OBJECTS</small>
+            <strong id="nObjects" class="glow-val">--</strong>
+          </div>
+          <div class="chart-container">
+            <canvas id="telemetryChart" aria-label="Performance graph"></canvas>
+          </div>
+        </div>
+        <div class="stage-line">
+          <span>DATA SENSE <b id="senseMs">--</b></span>
+          <span>RASTERIZE <b id="renderMs">--</b></span>
+          <span>ADAPTIVE CELLS <b id="adaptCells">--</b></span>
+          <span>MEMORY <b id="adaptMb">--</b></span>
+          <span>COMPRESSION <b id="reduction" class="glow-val">--</b></span>
+        </div>
+      </section>
+
+      <!-- Bottom Section: Clean Two-Row Modular Controls (No Overlapping) -->
+      <section class="bottom-controls technical-panel">
+        <!-- Row 1: Playback Controls & Frame Scrubber -->
+        <div class="ctrl-row ctrl-row-top">
+          <div class="playback">
+            <button id="prevFrame" title="Previous Frame (◀)">◀</button>
+            <button id="playPause" class="play" title="Play / Pause">❚❚</button>
+            <button id="nextFrame" title="Next Frame (▶)">▶</button>
+            <button id="resetBtn" title="Reset Simulation (↻)">↻</button>
+            <div class="frame-readout">
+              <small>FRAME INDEX</small>
+              <strong id="frameIndex">----</strong>
+              <span>/ LIVE</span>
+            </div>
+          </div>
+
+          <div class="scrub">
+            <input id="frameScrubber" type="range" min="1" max="500" value="1" title="Scrub frame">
+            <input id="jumpFrame" type="number" min="1" max="500" value="1" aria-label="Jump to frame">
+            <button id="jumpButton">JUMP</button>
+          </div>
+        </div>
+
+        <!-- Row 2: Scenario Settings, Speed, Point Size & Temporal Window -->
+        <div class="ctrl-row ctrl-row-bottom">
+          <div class="settings-group">
+            <label>DATASET
+              <select id="dataMode">
+                <option value="synthetic">CITY ROAD NETWORK</option>
+                <option value="kitti">KITTI / SEMANTICKITTI</option>
+              </select>
+            </label>
+            <label id="seqGroup" style="display:none;">SEQ
+              <select id="sequenceSelect">
+                <option value="00">00</option>
+              </select>
+            </label>
+            <label>SPEED
+              <select id="speedSelect">
+                <option value="0.5">0.5×</option>
+                <option value="1" selected>1.0×</option>
+                <option value="2">2.0×</option>
+                <option value="4">4.0×</option>
+              </select>
+            </label>
+            <label class="range-ctrl">POINT SIZE
+              <input id="pointSize" type="range" min="1" max="10" value="5">
+            </label>
+          </div>
+
+          <div class="temporal-group">
+            <div class="temporal-buttons">
+              <small>TEMPORAL SWEEPS</small>
+              <div id="temporalWindow">
+                <button data-window="1" class="active">1</button>
+                <button data-window="5">5</button>
+                <button data-window="10">10</button>
+                <button data-window="20">20</button>
+                <button data-window="50">50</button>
+              </div>
+            </div>
+            <label class="trails-check"><input id="trailsToggle" type="checkbox" checked> TRAILS</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 06: Perception Filters & Range Accuracy -->
+      <section class="filters technical-panel collapsible" id="filtersPanel">
+        <div class="panel-header">
+          <div>
+            <span class="section-index">06</span>
+            <span class="panel-title">PERCEPTION FILTERS</span>
+          </div>
+          <button class="collapse" data-collapse="filtersPanel" aria-label="Toggle panel">−</button>
+        </div>
+        <div class="panel-content filter-content">
+          <!-- Col 1: Dynamic State & Density -->
+          <div class="filter-col">
+            <small>DYNAMIC STATE</small>
+            <label><input id="staticToggle" type="checkbox" checked> STATIC SCENE</label>
+            <label><input id="dynamicToggle" type="checkbox" checked> DYNAMIC ACTORS</label>
+            <small style="margin-top:4px;">POINT DENSITY</small>
+            <select id="densitySelect">
+              <option value="1">FULL (100%)</option>
+              <option value="2">MEDIUM (50%)</option>
+              <option value="4">LOW (25%)</option>
+            </select>
+          </div>
+
+          <!-- Col 2: Distance Ranges -->
+          <div class="filter-col">
+            <small>DISTANCE RANGES</small>
+            <div class="range-grid">
+              <label><input type="checkbox" data-range="0,10" checked> 0–10M</label>
+              <label><input type="checkbox" data-range="10,25" checked> 10–25M</label>
+              <label><input type="checkbox" data-range="25,50" checked> 25–50M</label>
+              <label><input type="checkbox" data-range="50,100" checked> 50–100M</label>
+            </div>
+          </div>
+
+          <!-- Col 3: Accuracy Table -->
+          <div class="accuracy filter-col">
+            <small>ACCURACY BY RANGE</small>
+            <table>
+              <thead>
+                <tr><th>RANGE</th><th>ACC</th><th>mIoU</th></tr>
+              </thead>
+              <tbody id="accBody">
+                <tr><td>0-10m</td><td>--</td><td>--</td></tr>
+                <tr><td>10-25m</td><td>--</td><td>--</td></tr>
+                <tr><td>25-50m</td><td>--</td><td>--</td></tr>
+                <tr><td>50-100m</td><td>--</td><td>--</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
-  <div id="loadingScreen"><div class="loading-brand">◉ SPATIAL INTELLIGENCE</div><h2>INITIALIZING PERCEPTION ENGINE</h2><p id="loadingStep">CONNECTING TO LIVE PIPELINE…</p><div class="loading-line"><i></i></div></div>
+
+  <!-- Loading Splash Screen -->
+  <div id="loadingScreen">
+    <div class="loading-brand">◉ SPATIAL INTELLIGENCE</div>
+    <h2>INITIALIZING PERCEPTION ENGINE</h2>
+    <p id="loadingStep">COMPUTING ADAPTIVE 2.5D GRID & CITY NAVIGATION…</p>
+    <div class="loading-line"><i></i></div>
+  </div>
+
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

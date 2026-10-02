@@ -1,14 +1,13 @@
 # Adaptive Variable-Resolution LiDAR Mapping
 
 A runnable spatial-intelligence prototype for real-time LiDAR perception. It
-generates deterministic synthetic driving scenes, predicts point-level semantic
-classes, fuses static observations into a variable-resolution 2.5D grid, tracks
-dynamic objects, and presents the result in an interactive WebGL dashboard.
+supports deterministic synthetic driving scenes and KITTI/SemanticKITTI replay
+through the same semantic model, variable-resolution 2.5D grid, tracker, Flask
+API, and interactive WebGL dashboard.
 
-> This repository currently uses a procedural LiDAR simulator; it does **not**
-> include KITTI or SemanticKITTI data, live sensors, or a production-trained
-> perception model. Dashboard metrics are measured from this local pipeline and
-> range accuracy is evaluated against the simulator's ground truth.
+Live KITTI replay predicts from `.bin` points and a saved model only. SemanticKITTI
+labels are reserved for validation, training, evaluation, and optional ground-truth
+comparison; native instance IDs are never used as tracker IDs.
 
 ## Features
 
@@ -18,8 +17,8 @@ dynamic objects, and presents the result in an interactive WebGL dashboard.
   progressively coarser resolution at distance.
 - Sparse dynamic-object clustering and frame-to-frame tracking with velocity
   estimates.
-- Interactive GPU point-cloud dashboard with semantic, intensity, height,
-  distance, and dynamic-state render modes.
+- Interactive GPU point-cloud dashboard with prediction, optional ground truth
+  and error comparison, intensity, height, distance, and dynamic-state modes.
 - Temporal point accumulation, motion trails, object inspection, adaptive-grid
   map, playback controls, presentation mode, and measured telemetry.
 - Offline range-bucketed accuracy/mIoU evaluation and lightweight unit tests.
@@ -111,7 +110,46 @@ Dashboard controls include:
   overlay, filter classes/ranges/dynamic state, and press `P` for presentation
   mode.
 
-### Train the local model explicitly
+### Validate SemanticKITTI data
+
+```bash
+python -m data.validation --dataset-root <dataset-root> --sequence 00
+```
+
+The reader accepts standard `sequences/00/{velodyne,labels}` data, a flat
+directory of `.bin` frames for label-free replay, and a read-only archive layout
+containing a `velodyne` directory plus `*labels*.zip` and `*calib*.zip`.
+Validation remains strict: it verifies `N x 4` float32 points, packed label
+decoding, calibration, poses, and a matching point/label count per frame.
+
+### Train on SemanticKITTI
+
+```bash
+python -m perception.train_kitti --dataset-root <dataset-root> --sequences 00 \
+  --epochs 20 --batch-size 512 --learning-rate 0.05 --points-per-frame 20000 \
+  --checkpoint artifacts/kitti/model/model.npz --device cpu
+```
+
+Training streams frames with a deterministic non-overlapping train/validation/test
+split and saves weights, feature contract, class mapping, split, and metrics.
+The CPU NumPy model uses the same `extract_features()` implementation as live
+inference.
+
+### Replay KITTI in the dashboard
+
+```powershell
+$env:DATASET_TYPE = 'kitti'
+$env:KITTI_DATASET_ROOT = '<dataset-root>'
+$env:KITTI_SEQUENCE = '00'
+$env:TRAINED_MODEL_PATH = 'artifacts/kitti/model/model.npz'
+python -m server.app
+```
+
+The dashboard uses prediction by default. GT and error modes are comparison-only
+and enable only when labels are present. `MAX_INFERENCE_POINTS` and
+`MAX_CLOUD_POINTS` independently bound inference and browser payload work.
+
+### Train the local synthetic model explicitly
 
 ```bash
 python -m perception.train
@@ -127,6 +165,16 @@ python evaluate.py
 
 The evaluation reports held-out synthetic-frame accuracy and mIoU by range,
 mean inference time, and the adaptive-versus-uniform grid memory comparison.
+
+Evaluate real data with:
+
+```bash
+python evaluate.py --dataset kitti --dataset-root <dataset-root> --sequence 00 \
+  --model-path artifacts/kitti/model/model.npz
+```
+
+This reports overall accuracy, per-class precision/recall/IoU, mIoU, and
+metrics by planar range: 0–10 m, 10–25 m, 25–50 m, and 50–100 m.
 
 ### Test
 
@@ -145,11 +193,12 @@ python -m pytest tests -v
 - Dynamic and terrain class sets.
 - Adaptive-grid tiers, radial resolution, sectors, and maximum range.
 - Display raster resolution and range-accuracy buckets.
-- The deterministic random seed.
+- The deterministic random seed and optional `DATASET_TYPE`,
+  `KITTI_DATASET_ROOT`, `KITTI_SEQUENCE`, `KITTI_MAX_FRAMES`,
+  `MAX_INFERENCE_POINTS`, `MAX_CLOUD_POINTS`, and `TRAINED_MODEL_PATH`
+  environment settings.
 
-The server port is currently `5050` and is defined in `server/app.py`. The
-simulation timestep and dashboard point-payload cap are defined in `pipeline.py`
-as `SIM_DT` and `MAX_CLOUD_POINTS` respectively.
+The server port is `5050` and is defined in `server/app.py`.
 
 ## API
 
@@ -160,7 +209,9 @@ All endpoints are served by the Flask application at `http://127.0.0.1:5050`.
 | `GET` | `/` | Serves the dashboard. |
 | `GET` | `/api/frame` | Advances the pipeline by one frame and returns the live perception payload. |
 | `POST` | `/api/reset` | Resets simulator, adaptive-grid, tracker, and frame state. |
-| `POST` | `/api/seek` | Rebuilds deterministic state through a requested frame (1–500). Body: `{"frame": 96}`. |
+| `POST` | `/api/seek` | Rebuilds grid/tracker state through a requested frame. Body: `{"frame": 96}`. |
+| `GET` | `/api/config` | Current source, sequences, frame bounds, and GT availability. |
+| `POST` | `/api/dataset/select` | Select synthetic or KITTI source without changing payload schema. |
 
 `/api/frame` and `/api/seek` return a JSON object containing:
 
@@ -217,8 +268,7 @@ dashboard assets remain version-controlled.
 
 ## Limitations and next steps
 
-This is a self-contained prototype intended to demonstrate the adaptive-grid
-and spatial-perception workflow. Connecting real `.bin` LiDAR frames,
-SemanticKITTI labels, calibration/pose data, or a production inference runtime
-requires a data-adapter and model integration layer; those are deliberately not
-simulated as external-dataset support in the current codebase.
+This is an SIH prototype with a compact CPU NumPy point MLP, rather than a
+production sparse-convolution LiDAR model. Seeking far into a full KITTI
+sequence correctly rebuilds persistent grid/tracker state and is therefore more
+expensive than advancing a frame.

@@ -2,6 +2,8 @@
 Global configuration: semantic classes, colors, and the variable-resolution
 tier schedule used by both the perception pipeline and the grid engine.
 """
+import os
+from pathlib import Path
 import numpy as np
 
 # ---------------------------------------------------------------------------
@@ -51,7 +53,7 @@ for _t in TIERS:
 
 MAX_RANGE = TIERS[-1]["r_max"]
 RANGE_BUCKETS = [(0, 10), (10, 25), (25, 50), (50, 100)]
-DISPLAY_IMAGE_SIZE = 384
+DISPLAY_IMAGE_SIZE = 512
 
 # Uniform-grid baseline used purely for the memory-savings comparison shown
 # on the dashboard (same overall extent and radial cell size as the finest
@@ -65,3 +67,48 @@ N_LAYERS = 5
 LAYER_GROUND_H, LAYER_TOP_H, LAYER_CLASS, LAYER_CONF, LAYER_COUNT = range(5)
 
 RNG_SEED = 42
+
+# ---------------------------------------------------------------------------
+# Dataset / replay configuration.  Environment values deliberately default to
+# an empty root: a local dataset must be selected explicitly and is never
+# baked into source control.
+# ---------------------------------------------------------------------------
+DATASET_TYPE = os.getenv("DATASET_TYPE", "synthetic").strip().lower()
+KITTI_DATASET_ROOT = os.getenv("KITTI_DATASET_ROOT", "")
+KITTI_SEQUENCE = os.getenv("KITTI_SEQUENCE", "00").zfill(2)
+KITTI_MAX_FRAMES = int(os.getenv("KITTI_MAX_FRAMES", "0"))  # 0 = all
+KITTI_START_FRAME = int(os.getenv("KITTI_START_FRAME", "0"))
+MAX_INFERENCE_POINTS = int(os.getenv("MAX_INFERENCE_POINTS", "0"))  # 0 = all
+MAX_CLOUD_POINTS = int(os.getenv("MAX_CLOUD_POINTS", "3600"))
+MODEL_PATH = os.getenv("MODEL_PATH", str(Path("perception") / "weights.npz"))
+TRAINED_MODEL_PATH = os.getenv(
+    "TRAINED_MODEL_PATH", str(Path("artifacts") / "kitti" / "model" / "model.npz")
+)
+FEATURE_NORMALIZATION_VERSION = "fixed-v1"
+CLASS_MAPPING_VERSION = "semantic-kitti-prototype-v1"
+
+# SemanticKITTI raw IDs mapped to this six-class prototype ontology.  IDs not
+# listed here are intentionally ignored rather than being assigned a dubious
+# meaning.  Moving IDs use SemanticKITTI's corresponding dynamic categories.
+IGNORE_LABEL = -1
+SEMANTICKITTI_TO_PROTOTYPE = {
+    40: 0, 44: 0, 60: 0,                  # road, parking, lane-marking
+    48: 1, 49: 1, 70: 1, 72: 1,          # sidewalk, other-ground, vegetation, terrain
+    50: 2, 51: 2, 52: 2, 71: 2, 81: 2, 99: 2,  # building/fence/structure/trunk/sign/object
+    80: 3,                                # pole
+    30: 4, 31: 4, 32: 4,                  # person, bicyclist, motorcyclist
+    10: 5, 13: 5, 15: 5, 16: 5, 18: 5, 20: 5,  # car/bus/motorcycle/on-rails/truck/other-vehicle
+    252: 5, 253: 4, 254: 4, 255: 4, 256: 5, 257: 5, 258: 5, 259: 5,
+}
+
+# Human-readable source-of-truth mapping documentation used in validation and
+# saved with every real-data artifact.
+SEMANTICKITTI_MAPPING_DOCUMENTATION = {
+    "drivable_terrain": ["road", "parking", "lane-marking"],
+    "non_drivable_terrain": ["sidewalk", "other-ground", "vegetation", "terrain"],
+    "static_structure": ["building", "fence", "other-structure", "trunk", "traffic-sign", "other-object"],
+    "static_pole": ["pole"],
+    "dynamic_pedestrian": ["person", "bicyclist", "motorcyclist"],
+    "dynamic_vehicle": ["car", "truck", "bus", "motorcycle", "other-vehicle", "on-rails"],
+    "ignored": ["unlabeled", "outlier", "bicycle", "other native classes not defensibly represented"],
+}

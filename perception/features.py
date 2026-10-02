@@ -20,7 +20,15 @@ FEATURE_STD = np.array([25.0, 15.0, 0.6, 0.3, 22.0], dtype=np.float32)
 
 def extract_features(points: np.ndarray) -> np.ndarray:
     """points: (N,4) = x,y,z,intensity in ego frame -> (N,5) normalized feats."""
+    points = np.asarray(points, dtype=np.float32)
+    if points.ndim != 2 or points.shape[1] != 4:
+        raise ValueError(f"points must have shape (N, 4), received {points.shape}")
     x, y, z, intensity = points[:, 0], points[:, 1], points[:, 2], points[:, 3]
     r = np.hypot(x, y)
     feats = np.stack([x, y, z, intensity, r], axis=1).astype(np.float32)
     return (feats - FEATURE_MEAN) / FEATURE_STD
+
+
+def feature_configuration() -> dict:
+    """Serializable feature contract saved beside real-data model weights."""
+    return {"names": FEATURE_NAMES, "mean": FEATURE_MEAN.tolist(), "std": FEATURE_STD.tolist()}

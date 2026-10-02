@@ -60,25 +60,44 @@ class PointSegModel:
     def predict(self, points):
         """points: (N,4) raw x,y,z,intensity in ego frame.
         Returns (class_ids (N,) int, confidence (N,) float in [0,1])."""
+        points = np.asarray(points, dtype=np.float32)
+        if points.ndim != 2 or points.shape[1] != 4:
+            raise ValueError(f"points must have shape (N, 4), received {points.shape}")
         if len(points) == 0:
             return np.array([], dtype=int), np.array([], dtype=np.float32)
-        feats = extract_features(points)
+        return self.predict_features(extract_features(points))
+
+    def predict_features(self, feats):
+        """Predict from the shared, normalized feature contract."""
+        feats = np.asarray(feats, dtype=np.float32)
+        if feats.ndim != 2 or feats.shape[1] != N_FEATURES:
+            raise ValueError(f"features must have shape (N, {N_FEATURES})")
+        if len(feats) == 0:
+            return np.array([], dtype=int), np.array([], dtype=np.float32)
         probs = self._softmax(self._logits(feats))
         cls = probs.argmax(axis=1)
         conf = probs.max(axis=1)
         return cls, conf
 
     # ---- training (manual backprop, cross-entropy loss) ----
-    def train_step(self, feats, labels, lr=0.05, l2=1e-4):
+    def train_step(self, feats, labels, lr=0.05, l2=1e-4, class_weights=None):
+        if feats.ndim != 2 or feats.shape[1] != N_FEATURES:
+            raise ValueError(f"features must have shape (N, {N_FEATURES})")
+        if len(feats) == 0:
+            return 0.0, 0.0
+        if labels.shape != (len(feats),) or np.any((labels < 0) | (labels >= NUM_CLASSES)):
+            raise ValueError("labels must be a valid class-id vector aligned with features")
         N = feats.shape[0]
         cache = self._forward(feats)
         probs = self._softmax(cache["logits"])
         y_onehot = np.zeros_like(probs)
         y_onehot[np.arange(N), labels] = 1.0
 
-        loss = -np.mean(np.sum(y_onehot * np.log(probs + 1e-9), axis=1))
+        sample_weights = np.ones(N, dtype=np.float32) if class_weights is None else np.asarray(class_weights, dtype=np.float32)[labels]
+        normalizer = max(float(sample_weights.sum()), 1e-9)
+        loss = -np.sum(sample_weights * np.sum(y_onehot * np.log(probs + 1e-9), axis=1)) / normalizer
 
-        dlogits = (probs - y_onehot) / N
+        dlogits = (probs - y_onehot) * (sample_weights[:, None] / normalizer)
         dW3 = cache["a2"].T @ dlogits + l2 * self.W3
         db3 = dlogits.sum(axis=0)
         da2 = dlogits @ self.W3.T
