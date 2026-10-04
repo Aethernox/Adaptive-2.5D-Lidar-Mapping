@@ -96,11 +96,10 @@ flowchart TD
 | **Tier 3** | $50.0 - 100.0\text{ m}$ | $0.50\text{ m}$ ($50\text{ cm}$) | 128 | 100 | **12,800** | Far-field horizon situational awareness |
 | **Total** | **$0.0 - 100.0\text{ m}$** | — | — | **483** | **290,048** | **~55× Memory Reduction ($\approx 98.2\%$)** |
 
-### Addressing Mathematics
-For point $(x, y, z)$:
-$$r = \sqrt{x^2 + y^2}, \quad \theta = \operatorname{atan2}(y, x) \in [-\pi, \pi)$$
-$$\text{tier} = k \quad \text{where} \quad r \in [r_{\min}^{(k)}, r_{\max}^{(k)})$$
-$$\text{ring} = \left\lfloor \frac{r - r_{\min}^{(\text{tier})}}{\Delta r_{\text{tier}}} \right\rfloor, \quad \text{sector} = \left\lfloor \frac{(\theta + \pi) \cdot N_{\text{sectors}}^{(\text{tier})}}{2\pi} \right\rfloor$$
+
+<p align="center">
+  <img src="observed_outputs/mathematical_equations.jpeg" width="100%" alt="Addressing Mathematics Equations" />
+</p>
 
 ---
 
