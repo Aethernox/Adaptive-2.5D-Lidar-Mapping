@@ -49,6 +49,25 @@ class PerceptionEngine:
             # Instantiate untrained/baseline model for AI forward pass demonstration
             self._init_fresh_model()
 
+        # Class mappings
+        self.raw_to_learning_lut = self._load_class_mapping("configs/classes.yaml")
+
+    def _load_class_mapping(self, config_path: str) -> Optional[np.ndarray]:
+        if not os.path.exists(config_path):
+            return None
+        try:
+            import yaml
+            with open(config_path, "r") as f:
+                cfg = yaml.safe_load(f)
+            raw_to_learn = cfg.get("raw_to_learning_map", {})
+            lut = np.zeros(300, dtype=np.uint8)
+            for raw_id, learn_id in raw_to_learn.items():
+                if int(raw_id) < 300:
+                    lut[int(raw_id)] = int(learn_id)
+            return lut
+        except Exception:
+            return None
+
     def _init_fresh_model(self):
         """Initialize model architecture."""
         try:
@@ -99,11 +118,13 @@ class PerceptionEngine:
         if active_mode == "ground_truth":
             if frame.raw_labels is not None:
                 sem_ids = frame.semantic_labels
-                # Return mapped semantic labels if available
-                # Map raw SemanticKITTI to learning class
-                # Default identity / mapping
+                if self.raw_to_learning_lut is not None:
+                    safe_ids = np.clip(sem_ids, 0, len(self.raw_to_learning_lut) - 1)
+                    mapped_labels = self.raw_to_learning_lut[safe_ids]
+                else:
+                    mapped_labels = sem_ids
                 confidences = np.ones(N, dtype=np.float32)
-                return sem_ids, confidences
+                return mapped_labels, confidences
             else:
                 return self._heuristic_segmentation(pts)
 

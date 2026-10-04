@@ -6,21 +6,22 @@
   <title>Adaptive Variable-Resolution 2.5D LiDAR Perception & Mapping</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0a0d14;
-      --bg-panel: rgba(16, 22, 34, 0.85);
-      --bg-panel-solid: #101622;
-      --border-color: rgba(56, 189, 248, 0.2);
+      --bg-dark: #07090e;
+      --bg-panel: rgba(14, 20, 32, 0.88);
+      --bg-panel-solid: #0e1420;
+      --border-color: rgba(56, 189, 248, 0.18);
       --border-active: #38bdf8;
       --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.35);
       --accent: #818cf8;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --text-main: #f3f4f6;
-      --text-muted: #9ca3af;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
       --font-main: 'Inter', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
     }
@@ -34,14 +35,15 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      user-select: none;
     }
 
-    /* TOP BAR */
+    /* TOP HEADER */
     header {
       background: var(--bg-panel);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-color);
-      padding: 10px 20px;
+      padding: 10px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -54,33 +56,56 @@
     }
     .brand-badge {
       background: linear-gradient(135deg, #0284c7, #6366f1);
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       font-weight: 700;
       font-size: 11px;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
     }
     .brand-title {
       font-size: 15px;
       font-weight: 600;
       letter-spacing: -0.2px;
     }
+    .sim-mode-tag {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      letter-spacing: 0.4px;
+    }
+
     .status-group {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 20px;
       font-size: 12px;
       font-family: var(--font-mono);
+    }
+    .status-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
     }
     .status-badge {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       background: rgba(16, 185, 129, 0.15);
       color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 4px 10px;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 4px 12px;
       border-radius: 20px;
+      font-weight: 600;
     }
     .status-pulse {
       width: 8px;
@@ -88,16 +113,16 @@
       background: #34d399;
       border-radius: 50%;
       box-shadow: 0 0 8px #34d399;
-      animation: pulse 2s infinite;
+      animation: pulse 1.8s infinite;
     }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.85); } }
 
-    /* MAIN CONTAINER */
+    /* MAIN CONTAINER GRID */
     .dashboard-grid {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 420px;
-      grid-template-rows: 1fr 180px;
+      grid-template-columns: 1fr 440px;
+      grid-template-rows: 1fr 185px;
       gap: 12px;
       padding: 12px;
       overflow: hidden;
@@ -109,40 +134,71 @@
       grid-row: 1;
       background: #000;
       border: 1px solid var(--border-color);
-      border-radius: 10px;
+      border-radius: 12px;
       position: relative;
       overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
     }
     #lidar3dCanvas {
       width: 100%;
       height: 100%;
       display: block;
+      cursor: grab;
+    }
+    #lidar3dCanvas:active {
+      cursor: grabbing;
     }
     .viewport-overlay {
       position: absolute;
-      top: 12px;
-      left: 12px;
+      top: 14px;
+      left: 14px;
       display: flex;
       gap: 8px;
       z-index: 10;
     }
     .mode-btn {
-      background: rgba(16, 22, 34, 0.75);
-      backdrop-filter: blur(8px);
+      background: rgba(14, 20, 32, 0.8);
+      backdrop-filter: blur(10px);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 6px;
       font-size: 11px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mode-btn:hover {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.15);
     }
     .mode-btn.active {
       background: var(--primary);
-      color: #000;
+      color: #050b14;
       border-color: var(--primary);
-      font-weight: 600;
+      font-weight: 700;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .fps-overlay-badge {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(14, 20, 32, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: flex;
+      gap: 10px;
+      color: var(--text-muted);
+      z-index: 10;
+    }
+    .fps-overlay-badge span {
+      color: #34d399;
+      font-weight: 700;
     }
 
     /* 2.5D ADAPTIVE POLAR MAP VIEW */
@@ -150,21 +206,22 @@
       grid-column: 2;
       grid-row: 1;
       background: var(--bg-panel);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--border-color);
-      border-radius: 10px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .panel-header {
-      padding: 10px 14px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border-color);
       font-size: 13px;
       font-weight: 600;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: rgba(255, 255, 255, 0.02);
     }
     .panel-content {
       flex: 1;
@@ -172,13 +229,142 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 8px;
+      padding: 10px;
+      background: radial-gradient(circle at center, #0e1626 0%, #080c14 100%);
     }
     #polarCanvas {
       width: 100%;
       height: 100%;
-      max-height: 380px;
+      max-height: 400px;
       object-fit: contain;
+    }
+
+    /* CONTROLS HUD */
+    .controls-hud {
+      grid-column: 1;
+      grid-row: 2;
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .controls-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--primary);
+    }
+    .ctrl-btn.primary {
+      background: var(--primary);
+      color: #050b14;
+      font-weight: 700;
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+    .ctrl-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .slider-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--primary);
+      cursor: pointer;
+      height: 6px;
+    }
+    .frame-pill {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .controls-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .layer-toggles {
+      display: flex;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .toggle-label:hover {
+      color: var(--text-main);
+    }
+    .toggle-label input {
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .speed-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .speed-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .speed-btn:hover {
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .speed-btn.active {
+      background: var(--primary);
+      color: #050b14;
+      font-weight: 700;
+      border-color: var(--primary);
     }
 
     /* METRICS & BENCHMARK PANEL */
@@ -186,15 +372,24 @@
       grid-column: 2;
       grid-row: 2;
       background: var(--bg-panel);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
       overflow-y: auto;
       font-size: 11px;
+    }
+    .highlight-card {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(129, 140, 248, 0.08));
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .metric-row {
       display: flex;
@@ -205,92 +400,16 @@
     .metric-val { font-family: var(--font-mono); font-weight: 600; }
     .metric-progress-bg {
       width: 100%;
-      height: 6px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 3px;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
       overflow: hidden;
-      margin-top: 2px;
     }
     .metric-progress-bar {
       height: 100%;
       background: linear-gradient(90deg, var(--primary), var(--accent));
-      border-radius: 3px;
+      border-radius: 2px;
     }
-    .highlight-card {
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      border-radius: 6px;
-      padding: 8px 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    /* CONTROLS HUD */
-    .controls-hud {
-      grid-column: 1;
-      grid-row: 2;
-      background: var(--bg-panel);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 12px 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .controls-top {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .ctrl-btn {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-    .ctrl-btn:hover {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: var(--primary);
-    }
-    .ctrl-btn.primary {
-      background: var(--primary);
-      color: #000;
-      font-weight: 600;
-    }
-    .slider-container {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    input[type=range] {
-      flex: 1;
-      accent-color: var(--primary);
-      cursor: pointer;
-    }
-    .layer-toggles {
-      display: flex;
-      gap: 14px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .toggle-label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-    .toggle-label input { accent-color: var(--primary); }
   </style>
 </head>
 <body>
@@ -299,15 +418,25 @@
   <header>
     <div class="brand">
       <div class="brand-badge">SIH26053</div>
-      <div class="brand-title">Adaptive Variable-Resolution 2.5D LiDAR Perception</div>
+      <div class="brand-title">Adaptive Variable-Resolution 2.5D LiDAR Perception & Mapping</div>
+      <div class="sim-mode-tag">HIGH-FPS SIMULATION ENGINE</div>
     </div>
     <div class="status-group">
-      <div>SEQUENCE: <span style="color:var(--primary)">00</span></div>
-      <div>FRAME: <span id="frameCounter" style="color:#fff">000000</span></div>
-      <div>FPS: <span id="fpsCounter" style="color:#34d399">0.0</span></div>
+      <div class="status-pill">
+        <span style="color:var(--text-muted)">SEQ:</span>
+        <span id="seqDisplay" style="color:var(--primary); font-weight:700">00</span>
+      </div>
+      <div class="status-pill">
+        <span style="color:var(--text-muted)">FRAME:</span>
+        <span id="frameCounter" style="color:#fff; font-weight:700">0000</span>
+      </div>
+      <div class="status-pill">
+        <span style="color:var(--text-muted)">STREAM FPS:</span>
+        <span id="fpsCounter" style="color:#34d399; font-weight:700">0.0</span>
+      </div>
       <div class="status-badge">
         <div class="status-pulse"></div>
-        <span id="systemStatus">STREAMING</span>
+        <span id="systemStatus">CONNECTED</span>
       </div>
     </div>
   </header>
@@ -320,9 +449,15 @@
       <div class="viewport-overlay">
         <button class="mode-btn active" id="btnModeSemantic" onclick="setRenderMode('semantic')">Semantic 3D</button>
         <button class="mode-btn" id="btnModeElevation" onclick="setRenderMode('elevation')">Elevation 2.5D</button>
-        <button class="mode-btn" id="btnModeRaw" onclick="setRenderMode('raw')">Raw LiDAR</button>
+        <button class="mode-btn" id="btnModeRaw" onclick="setRenderMode('raw')">Raw Intensity</button>
         <button class="mode-btn" id="btnResetCamera" onclick="resetCamera()">Top-Down / 3D</button>
       </div>
+
+      <div class="fps-overlay-badge">
+        <div>Client Render FPS: <span id="clientFpsVal">60.0</span></div>
+        <div>Total Points: <span id="overlayPointVal">0</span></div>
+      </div>
+
       <canvas id="lidar3dCanvas"></canvas>
     </div>
 
@@ -333,7 +468,7 @@
         <span style="font-size:11px; color:var(--primary); font-family:var(--font-mono)">~290K Cells (O(1))</span>
       </div>
       <div class="panel-content">
-        <canvas id="polarCanvas" width="400" height="400"></canvas>
+        <canvas id="polarCanvas" width="420" height="420"></canvas>
       </div>
     </div>
 
@@ -341,29 +476,37 @@
     <div class="controls-hud">
       <div class="controls-top">
         <button class="ctrl-btn primary" id="btnPlayPause" onclick="togglePlay()">Pause</button>
-        <button class="ctrl-btn" onclick="stepFrame(-1)">Prev</button>
-        <button class="ctrl-btn" onclick="stepFrame(1)">Next</button>
-        <button class="ctrl-btn" onclick="resetReplay()">Reset</button>
+        <button class="ctrl-btn" onclick="stepFrame(-1)" title="Step -1 (Left Arrow)">◀ Prev</button>
+        <button class="ctrl-btn" onclick="stepFrame(1)" title="Step +1 (Right Arrow)">Next ▶</button>
+        <button class="ctrl-btn" onclick="resetReplay()" title="Reset to Frame 0 (R)">↺ Reset</button>
         
         <div class="slider-container">
           <input type="range" id="frameSlider" min="0" max="200" value="0" oninput="onSliderSeek(this.value)">
-          <span id="sliderValue" style="font-family:var(--font-mono); font-size:12px">0</span>
+          <div class="frame-pill"><span id="sliderValue">0</span> / <span id="sliderMax">200</span></div>
         </div>
 
-        <select id="speedSelect" class="ctrl-btn" onchange="setPlaybackSpeed(this.value)">
-          <option value="0.5">0.5x</option>
-          <option value="1.0" selected>1.0x (10 FPS)</option>
-          <option value="2.0">2.0x (20 FPS)</option>
-          <option value="5.0">5.0x Max</option>
-        </select>
+        <div class="speed-group">
+          <span style="font-size:11px; color:var(--text-muted)">Speed:</span>
+          <button class="speed-btn" onclick="setSpeed(0.5, this)">0.5x</button>
+          <button class="speed-btn active" onclick="setSpeed(1.0, this)">1.0x</button>
+          <button class="speed-btn" onclick="setSpeed(2.0, this)">2.0x</button>
+          <button class="speed-btn" onclick="setSpeed(4.0, this)">4.0x</button>
+          <button class="speed-btn" onclick="setSpeed(10.0, this)">MAX</button>
+        </div>
       </div>
 
-      <div class="layer-toggles">
-        <label class="toggle-label"><input type="checkbox" id="chkSemantic" checked onchange="updateToggles()"> Semantic Classes</label>
-        <label class="toggle-label"><input type="checkbox" id="chkAdaptiveGrid" checked onchange="updateToggles()"> Polar Range Rings</label>
-        <label class="toggle-label"><input type="checkbox" id="chkDynamicBoxes" checked onchange="updateToggles()"> 3D Bounding Boxes</label>
-        <label class="toggle-label"><input type="checkbox" id="chkVelocity" checked onchange="updateToggles()"> Velocity Vectors</label>
-        <label class="toggle-label"><input type="checkbox" id="chkTrajectory" checked onchange="updateToggles()"> Ego Trajectory</label>
+      <div class="controls-bottom">
+        <div class="layer-toggles">
+          <label class="toggle-label"><input type="checkbox" id="chkSemantic" checked onchange="updateToggles()"> Semantic Classes</label>
+          <label class="toggle-label"><input type="checkbox" id="chkAdaptiveGrid" checked onchange="updateToggles()"> Polar Range Rings</label>
+          <label class="toggle-label"><input type="checkbox" id="chkDynamicBoxes" checked onchange="updateToggles()"> 3D Bounding Boxes</label>
+          <label class="toggle-label"><input type="checkbox" id="chkVelocity" checked onchange="updateToggles()"> Velocity Vectors</label>
+          <label class="toggle-label"><input type="checkbox" id="chkTrajectory" checked onchange="updateToggles()"> Ego Trajectory</label>
+        </div>
+
+        <div style="color:var(--text-muted); font-size:11px; font-family:var(--font-mono)">
+          [Space]: Play/Pause | [←/→]: Step | [R]: Reset
+        </div>
       </div>
     </div>
 
@@ -371,12 +514,12 @@
     <div class="metrics-panel">
       <div class="highlight-card">
         <div>
-          <div style="font-size:10px; color:var(--text-muted)">MEMORY REDUCTION</div>
+          <div style="font-size:10px; color:var(--text-muted); font-weight:600">MEMORY REDUCTION</div>
           <div style="font-size:16px; font-weight:700; color:#38bdf8" id="memReductionVal">98.2% (55x)</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:10px; color:var(--text-muted)">ADAPTIVE vs UNIFORM</div>
-          <div style="font-size:12px; font-family:var(--font-mono)" id="memRatioVal">4.6 MB vs 256 MB</div>
+          <div style="font-size:10px; color:var(--text-muted); font-weight:600">ADAPTIVE vs UNIFORM</div>
+          <div style="font-size:12px; font-family:var(--font-mono); color:#fff" id="memRatioVal">4.6 MB vs 256 MB</div>
         </div>
       </div>
 
@@ -386,13 +529,13 @@
       </div>
 
       <div class="metric-row">
-        <span class="metric-title">Inference Latency:</span>
+        <span class="metric-title">Pipeline Inference (Batch):</span>
         <span class="metric-val" id="inferLatencyVal">18.4 ms</span>
       </div>
       <div class="metric-progress-bg"><div class="metric-progress-bar" id="barInfer" style="width: 25%"></div></div>
 
       <div class="metric-row">
-        <span class="metric-title">Mapping & Temporal Fusion:</span>
+        <span class="metric-title">2.5D Polar Mapping & Fusion:</span>
         <span class="metric-val" id="mapLatencyVal">5.2 ms</span>
       </div>
       <div class="metric-progress-bg"><div class="metric-progress-bar" id="barMap" style="width: 15%"></div></div>
@@ -402,36 +545,40 @@
         <span class="metric-val" style="color:#ef4444" id="activeTracksVal">0</span>
       </div>
 
-      <div style="margin-top:4px; font-weight:600; font-size:11px; color:#9ca3af">RANGE-BUCKETED mIoU</div>
+      <div style="margin-top:6px; font-weight:600; font-size:11px; color:#9ca3af; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px">
+        RANGE-BUCKETED mIoU (VARIABLE RESOLUTION)
+      </div>
       <div class="metric-row">
-        <span>0-10m (Tier 0):</span>
+        <span>Tier 0 (0-10m @ 5cm):</span>
         <span class="metric-val" style="color:#10b981">88.4%</span>
       </div>
       <div class="metric-row">
-        <span>10-25m (Tier 1):</span>
+        <span>Tier 1 (10-25m @ 15cm):</span>
         <span class="metric-val" style="color:#38bdf8">79.2%</span>
       </div>
       <div class="metric-row">
-        <span>25-50m (Tier 2):</span>
+        <span>Tier 2 (25-50m @ 30cm):</span>
         <span class="metric-val" style="color:#f59e0b">68.5%</span>
       </div>
       <div class="metric-row">
-        <span>50-100m (Tier 3):</span>
+        <span>Tier 3 (50-100m @ 50cm):</span>
         <span class="metric-val" style="color:#ef4444">52.1%</span>
       </div>
     </div>
 
   </div>
 
-  <!-- JAVASCRIPT APP LOGIC & 3D WEBGL RENDERING -->
+  <!-- JAVASCRIPT APP LOGIC & HIGH-SPEED 3D RENDERING -->
   <script>
     let renderMode = "semantic";
     let isPlaying = true;
     let ws = null;
     let latestData = null;
+    let totalFrames = 200;
 
+    // Class Colors Map matching SemanticKITTI 20 Learning Classes
     const classColors = {
-      0: [128, 128, 128],    // unlabeled
+      0: [128, 128, 128],    // unlabeled / outlier
       1: [100, 150, 245],    // car (blue)
       2: [100, 230, 245],    // bicycle
       3: [30, 60, 150],      // motorcycle
@@ -453,55 +600,82 @@
       19: [255, 0, 0]        // traffic sign
     };
 
-    // --- 3D CANVAS & ORBIT CONTROLS ---
+    // --- 3D CANVAS & SMOOTH ORBIT CONTROLS ---
     const canvas3d = document.getElementById("lidar3dCanvas");
-    const ctx3d = canvas3d.getContext("2d");
+    const ctx3d = canvas3d.getContext("2d", { alpha: false });
     let rotX = 55 * Math.PI / 180;
     let rotZ = 45 * Math.PI / 180;
     let zoom = 5.5;
+    let panX = 0, panY = 0;
     let isDragging = false;
+    let dragButton = 0;
     let lastMouseX = 0, lastMouseY = 0;
 
+    // Client Render FPS counter
+    let lastFrameTime = performance.now();
+    let renderFrameCount = 0;
+    let clientFps = 60.0;
+
     function resizeCanvases() {
-      canvas3d.width = canvas3d.parentElement.clientWidth;
-      canvas3d.height = canvas3d.parentElement.clientHeight;
+      const rect = canvas3d.parentElement.getBoundingClientRect();
+      canvas3d.width = rect.width;
+      canvas3d.height = rect.height;
+
+      const pRect = polarCanvas.parentElement.getBoundingClientRect();
+      polarCanvas.width = pRect.width;
+      polarCanvas.height = pRect.height;
     }
     window.addEventListener("resize", resizeCanvases);
     setTimeout(resizeCanvases, 100);
 
+    canvas3d.addEventListener("contextmenu", (e) => e.preventDefault());
+
     canvas3d.addEventListener("mousedown", (e) => {
       isDragging = true;
+      dragButton = e.button;
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
     });
+
     window.addEventListener("mouseup", () => { isDragging = false; });
+
     window.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
       const dx = e.clientX - lastMouseX;
       const dy = e.clientY - lastMouseY;
-      rotZ += dx * 0.008;
-      rotX += dy * 0.008;
-      rotX = Math.max(0.1, Math.min(Math.PI / 2, rotX));
+
+      if (dragButton === 0) {
+        // Left click: Orbit
+        rotZ += dx * 0.008;
+        rotX += dy * 0.008;
+        rotX = Math.max(0.05, Math.min(Math.PI / 2, rotX));
+      } else if (dragButton === 2) {
+        // Right click: Pan
+        panX += dx;
+        panY += dy;
+      }
+
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
-      render3D();
     });
+
     canvas3d.addEventListener("wheel", (e) => {
       e.preventDefault();
       zoom *= (e.deltaY > 0) ? 0.9 : 1.1;
-      zoom = Math.max(1.0, Math.min(30.0, zoom));
-      render3D();
-    });
+      zoom = Math.max(1.0, Math.min(40.0, zoom));
+    }, { passive: false });
 
     function resetCamera() {
-      if (rotX === Math.PI / 2) {
+      if (Math.abs(rotX - Math.PI / 2) < 0.05) {
         rotX = 55 * Math.PI / 180;
         rotZ = 45 * Math.PI / 180;
       } else {
         rotX = Math.PI / 2;
         rotZ = 0;
       }
-      render3D();
+      panX = 0;
+      panY = 0;
+      zoom = 5.5;
     }
 
     function setRenderMode(mode) {
@@ -510,81 +684,10 @@
       if (mode === "semantic") document.getElementById("btnModeSemantic").classList.add("active");
       if (mode === "elevation") document.getElementById("btnModeElevation").classList.add("active");
       if (mode === "raw") document.getElementById("btnModeRaw").classList.add("active");
-      render3D();
     }
 
-    // --- 3D RENDERING LOOP ---
-    function render3D() {
-      if (!ctx3d) return;
-      const w = canvas3d.width;
-      const h = canvas3d.height;
-      ctx3d.fillStyle = "#0a0d14";
-      ctx3d.fillRect(0, 0, w, h);
-
-      const cx = w / 2;
-      const cy = h / 2;
-
-      // Draw Grid Rings in 3D
-      if (document.getElementById("chkAdaptiveGrid").checked) {
-        ctx3d.strokeStyle = "rgba(56, 189, 248, 0.2)";
-        ctx3d.lineWidth = 1;
-        const tiers = [10, 25, 50, 100];
-        tiers.forEach((r_m) => {
-          ctx3d.beginPath();
-          for (let a = 0; a <= Math.PI * 2; a += 0.1) {
-            const px = r_m * Math.cos(a);
-            const py = r_m * Math.sin(a);
-            const pz = -1.5;
-            const scr = project3D(px, py, pz, cx, cy);
-            if (a === 0) ctx3d.moveTo(scr.x, scr.y);
-            else ctx3d.lineTo(scr.x, scr.y);
-          }
-          ctx3d.stroke();
-        });
-      }
-
-      if (!latestData || !latestData.points) return;
-
-      const pts = latestData.points;
-      const N = pts.x.length;
-      const chkSemantic = document.getElementById("chkSemantic").checked;
-
-      // Render Point Cloud
-      for (let i = 0; i < N; i++) {
-        const x = pts.x[i];
-        const y = pts.y[i];
-        const z = pts.z[i];
-        const lbl = pts.label[i];
-
-        const scr = project3D(x, y, z, cx, cy);
-        if (scr.z < 0) continue;
-
-        let color = "#38bdf8";
-        if (renderMode === "semantic" && chkSemantic) {
-          const c = classColors[lbl] || [128, 128, 128];
-          color = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-        } else if (renderMode === "elevation") {
-          const normZ = Math.max(0, Math.min(1, (z + 2.5) / 5.0));
-          color = `hsl(${240 - normZ * 240}, 100%, 60%)`;
-        }
-
-        ctx3d.fillStyle = color;
-        ctx3d.fillRect(scr.x, scr.y, 2, 2);
-      }
-
-      // Render 3D Dynamic Bounding Boxes
-      if (document.getElementById("chkDynamicBoxes").checked && latestData.tracks) {
-        latestData.tracks.forEach(trk => {
-          draw3DBoundingBox(trk, cx, cy);
-        });
-      }
-
-      // Render Ego Vehicle
-      drawEgoVehicle(cx, cy);
-    }
-
+    // --- 3D PROJECTION ---
     function project3D(x, y, z, cx, cy) {
-      // Rotate by rotZ then rotX
       const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
       const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
 
@@ -598,18 +701,129 @@
 
       const scale = zoom * 3.5;
       return {
-        x: cx + x2 * scale,
-        y: cy - z2 * scale,
+        x: cx + panX + x2 * scale,
+        y: cy + panY - z2 * scale,
         z: y2
       };
     }
 
+    // --- MAIN 3D RENDER FUNCTION ---
+    function render3D() {
+      if (!ctx3d) return;
+      const w = canvas3d.width;
+      const h = canvas3d.height;
+
+      // Dark futuristic background
+      ctx3d.fillStyle = "#07090e";
+      ctx3d.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+
+      // Draw Adaptive Polar Rings on Ground Plane
+      if (document.getElementById("chkAdaptiveGrid").checked) {
+        const tiers = [10, 25, 50, 100];
+        const tierColors = ["rgba(56, 189, 248, 0.25)", "rgba(129, 140, 248, 0.2)", "rgba(245, 158, 11, 0.15)", "rgba(156, 163, 175, 0.1)"];
+
+        tiers.forEach((r_m, idx) => {
+          ctx3d.strokeStyle = tierColors[idx];
+          ctx3d.lineWidth = 1;
+          ctx3d.beginPath();
+          for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.08) {
+            const px = r_m * Math.cos(a);
+            const py = r_m * Math.sin(a);
+            const scr = project3D(px, py, -1.6, cx, cy);
+            if (a === 0) ctx3d.moveTo(scr.x, scr.y);
+            else ctx3d.lineTo(scr.x, scr.y);
+          }
+          ctx3d.stroke();
+        });
+
+        // Radial Sector Guides
+        ctx3d.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        for (let i = 0; i < 8; i++) {
+          const ang = (i * Math.PI) / 4;
+          const scr0 = project3D(0, 0, -1.6, cx, cy);
+          const scr1 = project3D(100 * Math.cos(ang), 100 * Math.sin(ang), -1.6, cx, cy);
+          ctx3d.beginPath();
+          ctx3d.moveTo(scr0.x, scr0.y);
+          ctx3d.lineTo(scr1.x, scr1.y);
+          ctx3d.stroke();
+        }
+      }
+
+      // Draw Ego Trajectory
+      if (document.getElementById("chkTrajectory").checked && latestData && latestData.trajectory) {
+        const traj = latestData.trajectory;
+        if (traj.length > 1) {
+          ctx3d.strokeStyle = "rgba(16, 185, 129, 0.7)";
+          ctx3d.lineWidth = 2;
+          ctx3d.beginPath();
+          traj.forEach((pos, idx) => {
+            const scr = project3D(pos[0], pos[1], -1.5, cx, cy);
+            if (idx === 0) ctx3d.moveTo(scr.x, scr.y);
+            else ctx3d.lineTo(scr.x, scr.y);
+          });
+          ctx3d.stroke();
+        }
+      }
+
+      if (!latestData || !latestData.points) {
+        // Draw Ego Vehicle Center
+        drawEgoVehicle(cx, cy);
+        return;
+      }
+
+      const pts = latestData.points;
+      const N = pts.x.length;
+      const chkSemantic = document.getElementById("chkSemantic").checked;
+
+      // High-speed Point Cloud Rasterization
+      for (let i = 0; i < N; i++) {
+        const x = pts.x[i];
+        const y = pts.y[i];
+        const z = pts.z[i];
+        const lbl = pts.label[i];
+
+        const scr = project3D(x, y, z, cx, cy);
+        if (scr.z < -40 || scr.x < 0 || scr.x > w || scr.y < 0 || scr.y > h) continue;
+
+        let color = "#38bdf8";
+        if (renderMode === "semantic" && chkSemantic) {
+          const c = classColors[lbl] || [128, 128, 128];
+          color = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        } else if (renderMode === "elevation") {
+          const normZ = Math.max(0, Math.min(1, (z + 2.5) / 5.0));
+          color = `hsl(${240 - normZ * 240}, 95%, 60%)`;
+        } else {
+          // Raw
+          color = "#e0f2fe";
+        }
+
+        ctx3d.fillStyle = color;
+        ctx3d.fillRect(scr.x, scr.y, 2, 2);
+      }
+
+      // Draw 3D Dynamic Bounding Boxes
+      if (document.getElementById("chkDynamicBoxes").checked && latestData.tracks) {
+        latestData.tracks.forEach(trk => {
+          draw3DBoundingBox(trk, cx, cy);
+        });
+      }
+
+      // Draw Ego Vehicle
+      drawEgoVehicle(cx, cy);
+    }
+
     function drawEgoVehicle(cx, cy) {
-      const scr = project3D(0, 0, -1.0, cx, cy);
+      const scr = project3D(0, 0, -1.2, cx, cy);
       ctx3d.fillStyle = "#ef4444";
       ctx3d.beginPath();
       ctx3d.arc(scr.x, scr.y, 5, 0, Math.PI * 2);
       ctx3d.fill();
+      ctx3d.strokeStyle = "#ffffff";
+      ctx3d.lineWidth = 1.5;
+      ctx3d.stroke();
     }
 
     function draw3DBoundingBox(trk, cx, cy) {
@@ -618,7 +832,7 @@
       
       ctx3d.strokeStyle = trk.is_moving ? "#ef4444" : "#f59e0b";
       ctx3d.lineWidth = 2;
-      ctx3d.strokeRect(scr.x - 12, scr.y - 12, 24, 24);
+      ctx3d.strokeRect(scr.x - 14, scr.y - 14, 28, 28);
 
       // Velocity vector arrow
       if (document.getElementById("chkVelocity").checked && trk.is_moving) {
@@ -639,12 +853,12 @@
       if (!polarCtx) return;
       const w = polarCanvas.width;
       const h = polarCanvas.height;
-      polarCtx.fillStyle = "#0d131f";
+      polarCtx.fillStyle = "#080c14";
       polarCtx.fillRect(0, 0, w, h);
 
       const cx = w / 2;
       const cy = h / 2;
-      const maxR = w * 0.45;
+      const maxR = Math.min(w, h) * 0.44;
 
       // Draw Concentric Range Rings (Tier 0: 10m, Tier 1: 25m, Tier 2: 50m, Tier 3: 100m)
       const tierRanges = [10, 25, 50, 100];
@@ -652,7 +866,7 @@
       
       tierRanges.forEach((r_m, idx) => {
         const r_px = (r_m / 100.0) * maxR;
-        polarCtx.strokeStyle = "rgba(56, 189, 248, 0.25)";
+        polarCtx.strokeStyle = "rgba(56, 189, 248, 0.2)";
         polarCtx.lineWidth = 1;
         polarCtx.beginPath();
         polarCtx.arc(cx, cy, r_px, 0, Math.PI * 2);
@@ -660,7 +874,7 @@
 
         polarCtx.fillStyle = tierColors[idx];
         polarCtx.font = "9px JetBrains Mono";
-        polarCtx.fillText(`${r_m}m (T${idx})`, cx + r_px - 28, cy - 4);
+        polarCtx.fillText(`${r_m}m (T${idx})`, cx + r_px - 32, cy - 4);
       });
 
       // Draw radial sectors
@@ -677,9 +891,8 @@
 
       // Draw Occupied Adaptive Polar Cells
       latestData.grid_cells.forEach(cell => {
-        const [tier_id, ring_idx, sec_idx, sem_class, gh, oh, conf] = cell;
+        const [tier_id, ring_idx, sec_idx, sem_class] = cell;
         
-        // Lookup geometry
         const tierRMax = [10, 25, 50, 100][tier_id];
         const tierRMin = [0, 10, 25, 50][tier_id];
         const deltaR = [0.05, 0.15, 0.30, 0.50][tier_id];
@@ -704,7 +917,23 @@
       polarCtx.fill();
     }
 
-    // --- WEBSOCKET CONNECTION ---
+    // --- ANIMATION LOOP (SOLID 60 FPS) ---
+    function animationLoop(timestamp) {
+      renderFrameCount++;
+      if (timestamp - lastFrameTime >= 1000) {
+        clientFps = (renderFrameCount * 1000) / (timestamp - lastFrameTime);
+        document.getElementById("clientFpsVal").innerText = clientFps.toFixed(1);
+        renderFrameCount = 0;
+        lastFrameTime = timestamp;
+      }
+
+      render3D();
+      renderPolarRadar();
+      requestAnimationFrame(animationLoop);
+    }
+    requestAnimationFrame(animationLoop);
+
+    // --- WEBSOCKET REAL-TIME SYNC ---
     function connectWebSocket() {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${proto}//${window.location.host}/ws`;
@@ -712,16 +941,19 @@
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        document.getElementById("systemStatus").innerText = "CONNECTED";
+        document.getElementById("systemStatus").innerText = "STREAMING";
       };
 
       ws.onmessage = (evt) => {
         const msg = JSON.parse(evt.data);
-        if (msg.type === "frame_update") {
+        if (msg.type === "init_metadata") {
+          totalFrames = msg.total_frames || 200;
+          document.getElementById("seqDisplay").innerText = msg.sequence || "00";
+          document.getElementById("frameSlider").max = Math.max(1, totalFrames - 1);
+          document.getElementById("sliderMax").innerText = Math.max(1, totalFrames - 1);
+        } else if (msg.type === "frame_update") {
           latestData = msg;
           updateDashboardUI(msg);
-          render3D();
-          renderPolarRadar();
         }
       };
 
@@ -732,7 +964,8 @@
     }
 
     function updateDashboardUI(data) {
-      document.getElementById("frameCounter").innerText = String(data.seq).padStart(6, '0');
+      const seqStr = String(data.seq).padStart(4, '0');
+      document.getElementById("frameCounter").innerText = seqStr;
       document.getElementById("frameSlider").value = data.seq;
       document.getElementById("sliderValue").innerText = data.seq;
 
@@ -740,6 +973,7 @@
       if (m) {
         document.getElementById("fpsCounter").innerText = m.fps;
         document.getElementById("pointCountVal").innerText = m.num_points.toLocaleString();
+        document.getElementById("overlayPointVal").innerText = m.num_points.toLocaleString();
         document.getElementById("inferLatencyVal").innerText = `${m.inference_ms} ms`;
         document.getElementById("mapLatencyVal").innerText = `${m.mapping_ms} ms`;
         document.getElementById("activeTracksVal").innerText = m.active_tracks;
@@ -775,18 +1009,40 @@
       }
     }
 
-    function setPlaybackSpeed(speed) {
+    function setSpeed(speed, btnElement) {
+      document.querySelectorAll(".speed-btn").forEach(b => b.classList.remove("active"));
+      if (btnElement) btnElement.classList.add("active");
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ cmd: "set_speed", speed: parseFloat(speed) }));
       }
     }
 
     function updateToggles() {
-      render3D();
-      renderPolarRadar();
+      // Automatic update handled by requestAnimationFrame
     }
 
-    // Auto-connect on page load
+    // Keyboard Shortcuts
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        stepFrame(-1);
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        stepFrame(1);
+      } else if (e.code === "KeyR") {
+        resetReplay();
+      } else if (e.code === "Digit1") {
+        setRenderMode("semantic");
+      } else if (e.code === "Digit2") {
+        setRenderMode("elevation");
+      } else if (e.code === "Digit3") {
+        setRenderMode("raw");
+      }
+    });
+
     window.addEventListener("DOMContentLoaded", () => {
       connectWebSocket();
     });

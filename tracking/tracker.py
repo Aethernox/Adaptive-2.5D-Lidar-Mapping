@@ -136,7 +136,7 @@ class MultiObjectTracker:
         coords = np.floor(pts[:, :3] / voxel_size).astype(np.int64)
         
         # Hash 3D coords to 1D keys
-        keys = coords[:, 0] * 73856093 ^ coords[:, 1] * 19349663 ^ coords[:, 2] * 83492791
+        keys = (coords[:, 0] * 73856093) ^ (coords[:, 1] * 19349663) ^ (coords[:, 2] * 83492791)
         unique_keys, split_idx = np.unique(keys, return_index=True)
         splits = np.split(np.arange(len(keys)), split_idx[1:])
         

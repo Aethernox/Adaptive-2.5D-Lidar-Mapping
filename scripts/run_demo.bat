@@ -12,34 +12,38 @@ if exist ".venv\Scripts\activate.bat" (
 
 echo.
 echo Select Execution Mode:
-echo   [1] Interactive Web Dashboard (3D LiDAR + 2.5D Polar Grid + Metrics)
-echo   [2] CLI Replay Simulation (Sequence 00)
-echo   [3] Benchmark (Adaptive vs. Uniform Grid Profiling)
-echo   [4] Train Perception Model (AdaptivePolarNet)
-echo   [5] Validate Dataset
-echo   [6] Run Unit & Integration Tests
+echo   [1] High-FPS Web Simulation (Terminal Preprocessing -^> Localhost:8080)
+echo   [2] Batch Raw Data Preprocessor (Terminal Only)
+echo   [3] Fast CLI Virtual LiDAR Replay (Sequence 00)
+echo   [4] Benchmark (Adaptive vs. Uniform Grid Profiling)
+echo   [5] Train Perception Model (AdaptivePolarNet)
+echo   [6] Validate Dataset
+echo   [7] Run Unit ^& Integration Tests
 echo.
 
-set /p CHOICE="Enter choice (1-6) [default: 1]: "
+set /p CHOICE="Enter choice (1-7) [default: 1]: "
 if "%CHOICE%"=="" set CHOICE=1
 
 if "%CHOICE%"=="1" (
-    echo Launching Interactive Web Dashboard at http://localhost:8080 ...
+    echo Starting High-FPS Simulation Pipeline at http://localhost:8080 ...
     start "" http://localhost:8080
-    python -m tools.replay_kitti --sequence 00 --start-frame 0 --end-frame 500 --fps 10 --dashboard
+    python -m tools.replay_kitti --sequence 00 --start-frame 0 --end-frame 200 --fps 30 --dashboard
 ) else if "%CHOICE%"=="2" (
-    echo Starting CLI Virtual LiDAR Replay ...
-    python -m tools.replay_kitti --sequence 00 --start-frame 0 --end-frame 200 --fps 10
+    echo Starting Terminal Batch Raw Data Preprocessor ...
+    python -m tools.preprocess_sequence --sequence 00 --start-frame 0 --end-frame 200 --mode ground_truth
 ) else if "%CHOICE%"=="3" (
+    echo Starting Fast CLI Virtual LiDAR Replay ...
+    python -m tools.replay_kitti --sequence 00 --start-frame 0 --end-frame 200 --fps 30
+) else if "%CHOICE%"=="4" (
     echo Running Benchmark Profiling ...
     python -m tools.benchmark --sequence 00 --frames 50
-) else if "%CHOICE%"=="4" (
+) else if "%CHOICE%"=="5" (
     echo Starting Model Training ...
     python -m training.train --config configs/training.yaml
-) else if "%CHOICE%"=="5" (
+) else if "%CHOICE%"=="6" (
     echo Validating Dataset ...
     python -m tools.validate_dataset
-) else if "%CHOICE%"=="6" (
+) else if "%CHOICE%"=="7" (
     echo Running Test Suite ...
     python -m pytest tests/ -v
 ) else (

@@ -5,6 +5,9 @@
 # 1. Dataset & Binary Point Clouds (Large Files)
 kitti_dataset/
 data/
+data_cache/
+*.sim.pkl
+*.sim.pkl.gz
 *.bin
 *.label
 *.pcd

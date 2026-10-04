@@ -170,84 +170,58 @@ class AdaptivePolarGrid:
                 
             r_indices = ring_idx[t_mask]
             s_indices = sec_idx[t_mask]
-            z_vals = z[t_mask]
+            z_vals = z[t_mask].astype(np.float32)
             labels = semantic_labels[t_mask]
-            confs = confidences[t_mask]
+            confs = confidences[t_mask].astype(np.float32)
             insts = instance_ids[t_mask]
             
-            # Linear cell index for 1D fast grouping
+            # Linear cell index for 1D fast indexing
             num_sec = tier_data.num_sectors
-            linear_indices = r_indices * num_sec + s_indices
+            lin_indices = r_indices * num_sec + s_indices
             
-            # Sort by cell index for fast run-length grouping
-            sort_order = np.argsort(linear_indices)
-            lin_sorted = linear_indices[sort_order]
-            z_sorted = z_vals[sort_order]
-            lbl_sorted = labels[sort_order]
-            conf_sorted = confs[sort_order]
-            inst_sorted = insts[sort_order]
+            # Unique cell indices and counts
+            unique_cells, first_idx, counts = np.unique(lin_indices, return_index=True, return_counts=True)
             
-            # Find unique occupied cells and their split points
-            unique_cells, split_indices, counts = np.unique(
-                lin_sorted, return_index=True, return_counts=True
-            )
-            splits = np.split(np.arange(len(lin_sorted)), split_indices[1:])
+            # Flat views of SoA
+            gh_flat = tier_data.ground_height.reshape(-1)
+            oh_flat = tier_data.obstacle_top_height.reshape(-1)
+            sem_flat = tier_data.semantic_class.reshape(-1)
+            conf_flat = tier_data.confidence.reshape(-1)
+            dens_flat = tier_data.point_density.reshape(-1)
+            inst_flat = tier_data.dynamic_instance_id.reshape(-1)
+            occ_flat = tier_data.occupied_mask.reshape(-1)
             
-            # Fast vectorized/grouped aggregation per unique cell
-            for cell_lin_id, split_idx in zip(unique_cells, splits):
-                r = cell_lin_id // num_sec
-                s = cell_lin_id % num_sec
+            # Initialize cells with NaN
+            uninit_mask = np.isnan(gh_flat[unique_cells])
+            if np.any(uninit_mask):
+                uninit_cells = unique_cells[uninit_mask]
+                uninit_first = first_idx[uninit_mask]
+                gh_flat[uninit_cells] = z_vals[uninit_first]
+                oh_flat[uninit_cells] = z_vals[uninit_first]
                 
-                cell_z = z_sorted[split_idx]
-                cell_lbl = lbl_sorted[split_idx]
-                cell_conf = conf_sorted[split_idx]
-                cell_inst = inst_sorted[split_idx]
-                pt_count = len(cell_z)
-                
-                # Ground vs Obstacle separation
-                is_ground = np.isin(cell_lbl, ground_classes)
-                
-                # 1. Ground Height (robust 5th percentile)
-                if np.any(is_ground):
-                    ground_z = cell_z[is_ground]
-                    g_height = float(np.percentile(ground_z, 5.0))
-                else:
-                    g_height = float(np.percentile(cell_z, 5.0))
-                    
-                # 2. Obstacle Top Height (robust 95th percentile)
-                obs_z = cell_z[~is_ground] if np.any(~is_ground) else cell_z
-                o_height = float(np.percentile(obs_z, 95.0))
-                
-                # 3. Majority Semantic Class (confidence-weighted)
-                unique_lbls, lbl_inv = np.unique(cell_lbl, return_inverse=True)
-                weighted_votes = np.bincount(lbl_inv, weights=cell_conf)
-                maj_class = unique_lbls[np.argmax(weighted_votes)]
-                
-                # 4. Confidence (mean model confidence * density factor)
-                mean_conf = float(np.mean(cell_conf))
-                # Quantize to 0-255 uint8
-                conf_quant = int(np.clip(mean_conf * 255.0, 0, 255))
-                
-                # 5. Density: points / cell area
-                # Cell area = 0.5 * (r_outer^2 - r_inner^2) * delta_theta
-                r_in = self.tiers[t_id].r_min + r * self.tiers[t_id].delta_r
-                r_out = r_in + self.tiers[t_id].delta_r
-                d_theta = (2.0 * np.pi) / num_sec
-                cell_area = 0.5 * (r_out**2 - r_in**2) * d_theta
-                density = float(pt_count / max(cell_area, 1e-4))
-                
-                # 6. Dynamic Instance ID (mode instance)
-                dyn_insts = cell_inst[cell_inst > 0]
-                inst_id = int(np.bincount(dyn_insts).argmax()) if len(dyn_insts) > 0 else 0
-                
-                # Store into SoA
-                tier_data.ground_height[r, s] = g_height
-                tier_data.obstacle_top_height[r, s] = o_height
-                tier_data.semantic_class[r, s] = maj_class
-                tier_data.confidence[r, s] = conf_quant
-                tier_data.point_density[r, s] = density
-                tier_data.dynamic_instance_id[r, s] = inst_id
-                tier_data.occupied_mask[r, s] = True
+            # Vectorized min/max updates
+            np.minimum.at(gh_flat, lin_indices, z_vals)
+            np.maximum.at(oh_flat, lin_indices, z_vals)
+            
+            # Vectorized semantic classes (exact majority voting via count-sorted compound keys)
+            compound_keys = lin_indices.astype(np.int64) * 32 + labels.astype(np.int64)
+            unique_comp, comp_counts = np.unique(compound_keys, return_counts=True)
+            sort_order = np.argsort(comp_counts)
+            comp_cells = (unique_comp[sort_order] // 32).astype(np.int64)
+            comp_labels = (unique_comp[sort_order] % 32).astype(np.uint8)
+            sem_flat[comp_cells] = comp_labels
+            
+            conf_flat[lin_indices] = np.clip(confs * 255.0, 0, 255).astype(np.uint8)
+            inst_flat[lin_indices] = insts
+            occ_flat[unique_cells] = True
+            
+            # Fast density calculation
+            u_r = unique_cells // num_sec
+            r_in = self.tiers[t_id].r_min + u_r * self.tiers[t_id].delta_r
+            r_out = r_in + self.tiers[t_id].delta_r
+            d_theta = (2.0 * np.pi) / num_sec
+            cell_area = 0.5 * (r_out**2 - r_in**2) * d_theta
+            dens_flat[unique_cells] = (counts / np.maximum(cell_area, 1e-4)).astype(np.float32)
 
     def get_snapshot(self, stamp_ns: int, anchor_pose: Optional[Pose] = None) -> MapSnapshot:
         """Create an immutable MapSnapshot."""

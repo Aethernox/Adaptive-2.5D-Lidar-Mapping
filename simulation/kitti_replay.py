@@ -1,11 +1,12 @@
 """
 Virtual LiDAR Dataset Replay Engine
 Streams KITTI sequence frames into the perception, mapping, and tracking pipeline.
-Matches Section 17: Dataset replay uses the exact same interface as a physical LiDAR sensor.
+Supports both live pipeline execution and ultra-fast preprocessed cache playback.
 """
 
 import time
-from typing import Generator, Dict, Optional, Any
+from typing import Generator, Dict, Optional, Any, Union
+from pathlib import Path
 import numpy as np
 
 from core.schema import PointCloudFrame, Pose, SystemMetrics, MapSnapshot, TrackSet
@@ -15,6 +16,7 @@ from mapping.adaptive_grid import AdaptivePolarGrid
 from mapping.uniform_grid import UniformGridBaseline
 from mapping.temporal_fusion import TemporalMapFusion
 from tracking.tracker import MultiObjectTracker
+from simulation.preprocessor import SimulationPreprocessor, PreprocessedSimulation
 
 
 class VirtualLidarReplay:
@@ -54,9 +56,10 @@ class VirtualLidarReplay:
         self.temporal_fusion = TemporalMapFusion(self.adaptive_grid)
         self.tracker = MultiObjectTracker()
 
-    def stream_frames(self, loop: bool = False) -> Generator[Dict[str, Any], None, None]:
+    def stream_frames(self, loop: bool = False, realtime: bool = True) -> Generator[Dict[str, Any], None, None]:
         """
         Yields processed frame packet containing point clouds, adaptive map, tracks, and metrics.
+        If realtime=True, sleeps to match target_fps. If realtime=False, runs at max compute speed.
         """
         total_frames = len(self.dataset)
         start_idx = max(0, self.start_frame)
@@ -75,7 +78,7 @@ class VirtualLidarReplay:
                 # 2. Preprocessing & Deep Learning Perception
                 t1 = time.time()
                 pred_labels, confidences = self.perception.predict(frame)
-                prep_and_infer_ms = (time.time() - t1) * 1000.0
+                infer_ms = (time.time() - t1) * 1000.0
 
                 # 3. Dynamic Object Tracking
                 t2 = time.time()
@@ -112,14 +115,14 @@ class VirtualLidarReplay:
                 uniform_cells = self.uniform_baseline.total_cell_count
                 adaptive_mb = (adaptive_cells * 16) / (1024.0 * 1024.0)
                 uniform_mb = (uniform_cells * 16) / (1024.0 * 1024.0)
-                reduction_pct = (1.0 - (adaptive_cells / uniform_cells)) * 100.0
+                reduction_pct = (1.0 - (adaptive_cells / max(uniform_cells, 1))) * 100.0
 
                 metrics = SystemMetrics(
                     seq=frame.seq,
                     fps=current_fps,
                     load_ms=load_ms,
-                    preprocess_ms=prep_and_infer_ms * 0.3,
-                    inference_ms=prep_and_infer_ms * 0.7,
+                    preprocess_ms=load_ms,
+                    inference_ms=infer_ms,
                     mapping_ms=mapping_ms,
                     fusion_ms=mapping_ms * 0.4,
                     tracking_ms=tracking_ms,
@@ -144,11 +147,52 @@ class VirtualLidarReplay:
                     "trajectory": list(self.temporal_fusion.trajectory)
                 }
 
-                # Rate limiter
-                elapsed = time.time() - t_loop_start
-                sleep_time = self.frame_interval - elapsed
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # Rate limiter (only in realtime mode)
+                if realtime:
+                    elapsed = time.time() - t_loop_start
+                    sleep_time = self.frame_interval - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+
+            if not loop:
+                break
+
+
+class PreprocessedLidarReplay:
+    """
+    High-Speed Replay Engine backed by pre-computed simulation packages.
+    Delivers zero-latency frame streaming at arbitrary FPS (10-120+ FPS).
+    """
+
+    def __init__(
+        self,
+        simulation: Union[PreprocessedSimulation, str, Path],
+        target_fps: float = 30.0
+    ):
+        if isinstance(simulation, (str, Path)):
+            self.simulation = PreprocessedSimulation.load(simulation)
+        else:
+            self.simulation = simulation
+
+        self.target_fps = target_fps
+        self.frame_interval = 1.0 / max(target_fps, 0.1)
+
+    def stream_frames(self, loop: bool = False, realtime: bool = True) -> Generator[Dict[str, Any], None, None]:
+        total_frames = len(self.simulation)
+        if total_frames == 0:
+            return
+
+        while True:
+            for idx in range(total_frames):
+                t0 = time.time()
+                frame_payload = self.simulation[idx]
+                yield frame_payload
+
+                if realtime:
+                    elapsed = time.time() - t0
+                    sleep_time = self.frame_interval - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
 
             if not loop:
                 break
