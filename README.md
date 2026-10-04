@@ -45,30 +45,30 @@ This project implements a **native variable-resolution perception and mapping pi
 
 ```mermaid
 flowchart TD
-    A[KITTI / Virtual LiDAR Replay] -->|PointCloudFrame + Pose| B[Point Sanitization & Range Mask]
-    B -->|x, y, z, intensity| C[Log-Polar Coordinate Transform]
-    C -->|r, theta, z| D[Adaptive Polar Pillar Encoder]
+    A["KITTI / Virtual LiDAR Replay"] -->|"PointCloudFrame + Pose"| B["Point Sanitization & Range Mask"]
+    B -->|"x, y, z, intensity"| C["Log-Polar Coordinate Transform"]
+    C -->|"r, theta, z"| D["Adaptive Polar Pillar Encoder"]
     
-    D --> E{Perception Engine}
-    E -->|Mode 1: Ground Truth| F[Semantic Class LUT]
-    E -->|Mode 2: AI Inference| G[AdaptivePolarNet 2D Backbone + FPN]
+    D --> E{"Perception Engine"}
+    E -->|"Mode 1: Ground Truth"| F["Semantic Class LUT"]
+    E -->|"Mode 2: AI Inference"| G["AdaptivePolarNet 2D Backbone + FPN"]
     
-    F --> H[Point-wise Semantic Predictions]
+    F --> H["Point-wise Semantic Predictions"]
     G --> H
     
-    H --> I[Dynamic Object Clustering]
-    I --> J[3D Kalman Tracker & Association]
-    J -->|Sparse TrackSet| K[Dynamic Object Overlay]
+    H --> I["Dynamic Object Clustering"]
+    I --> J["3D Kalman Tracker & Association"]
+    J -->|"Sparse TrackSet"| K["Dynamic Object Overlay"]
     
-    H -->|Static Terrain / Obstacles| L[Adaptive 2.5D Polar Grid Aggregation]
-    L -->|Multi-Statistic Cells| M[Local Frame Temporal Fusion]
+    H -->|"Static Terrain / Obstacles"| L["Adaptive 2.5D Polar Grid Aggregation"]
+    L -->|"Multi-Statistic Cells"| M["Local Frame Temporal Fusion"]
     
-    M --> N[MapSnapshot Generator]
-    K --> O[Dashboard Bridge & Serializer]
+    M --> N["MapSnapshot Generator"]
+    K --> O["Dashboard Bridge & Serializer"]
     N --> O
     
-    O -->|WebSocket Stream| P[Interactive WebGL 3D / 2.5D Dashboard]
-    O -->|Profiling Telemetry| Q[Range-Bucketed Metrics Engine]
+    O -->|"WebSocket Stream"| P["Interactive WebGL 3D / 2.5D Dashboard"]
+    O -->|"Profiling Telemetry"| Q["Range-Bucketed Metrics Engine"]
 ```
 
 ---
@@ -260,18 +260,18 @@ To guarantee **60+ FPS simulation playback** without computational bottlenecks o
 
 ```mermaid
 flowchart LR
-    subgraph Phase 1: Terminal Batch Preprocessor
-        A[Raw Velodyne Scans .bin] --> B[Perception & Tracking Engine]
-        B --> C[2.5D Adaptive Polar Mapping]
-        C --> D[Uniform Baseline Metrics]
-        D --> E[Simulation Packager]
-        E --> F[(data_cache/sim_seq00.sim.pkl)]
+    subgraph P1["Phase 1: Terminal Batch Preprocessor"]
+        A["Raw Velodyne Scans (.bin)"] --> B["Perception & Tracking Engine"]
+        B --> C["2.5D Adaptive Polar Mapping"]
+        C --> D["Uniform Baseline Metrics"]
+        D --> E["Simulation Packager"]
+        E --> F[("data_cache/sim_seq00.sim.pkl")]
     end
 
-    subgraph Phase 2: High-FPS Localhost Simulation
-        F --> G[FastAPI / WebSocket Server]
-        G -->|O(1) Zero-Latency Streaming| H[Interactive 3D / 2.5D Web Dashboard]
-        H -->|Instant Scrubbing & 60+ FPS| I[Browser Visualizer at localhost:8080]
+    subgraph P2["Phase 2: High-FPS Localhost Simulation"]
+        F --> G["FastAPI / WebSocket Server"]
+        G -->|"O(1) Zero-Latency Streaming"| H["Interactive 3D / 2.5D Web Dashboard"]
+        H -->|"Instant Scrubbing & 60+ FPS"| I["Browser Visualizer at localhost:8080"]
     end
 ```
 
