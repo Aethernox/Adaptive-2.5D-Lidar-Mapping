@@ -9,6 +9,22 @@
 
 An end-to-end, high-performance perception and spatial mapping framework for autonomous mobile robotics. The system substitutes high-overhead uniform Cartesian grids with a native **Tiered Log-Polar Range-Ring representation** directly derived from sensor range and azimuth, achieving a **~55× memory reduction (~98.2%)** while maintaining high spatial resolution in the critical near-field collision zone.
 
+<table>
+  <tr>
+    <td width="49%" align="center">
+      <img src="observed_outputs/output%20(1).png" width="100%" alt="3D Semantic Point Cloud & Dynamic Bounding Boxes" />
+    </td>
+    <td width="51%" rowspan="2" align="center" valign="middle">
+      <img src="observed_outputs/output%20(3).png" width="100%" alt="Adaptive Log-Polar Range Rings Grid" />
+    </td>
+  </tr>
+  <tr>
+    <td width="49%" align="center">
+      <img src="observed_outputs/output%20(2).png" width="100%" alt="2.5D Elevation Mapping" />
+    </td>
+  </tr>
+</table>
+
 ---
 
 ## 1. Overview
@@ -82,9 +98,9 @@ flowchart TD
 
 ### Addressing Mathematics
 For point $(x, y, z)$:
-$$r = \sqrt{x^2 + y^2}, \quad \theta = \text{atan2}(y, x) \in [-\pi, \pi)$$
-$$\text{tier} = \text{lookup\_tier}(r)$$
-$$\text{ring} = \left\lfloor \frac{r - r_{\min}}{\Delta r} \right\rfloor, \quad \text{sector} = \left\lfloor \frac{(\theta + \pi) \cdot N_{\text{sectors}}}{2\pi} \right\rfloor$$
+$$r = \sqrt{x^2 + y^2}, \quad \theta = \operatorname{atan2}(y, x) \in [-\pi, \pi)$$
+$$\text{tier} = k \quad \text{where} \quad r \in [r_{\min}^{(k)}, r_{\max}^{(k)})$$
+$$\text{ring} = \left\lfloor \frac{r - r_{\min}^{(\text{tier})}}{\Delta r_{\text{tier}}} \right\rfloor, \quad \text{sector} = \left\lfloor \frac{(\theta + \pi) \cdot N_{\text{sectors}}^{(\text{tier})}}{2\pi} \right\rfloor$$
 
 ---
 
