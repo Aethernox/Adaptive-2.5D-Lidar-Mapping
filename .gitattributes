@@ -1,0 +1,29 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must use LF line endings
+*.sh text eol=lf
+
+# Windows batch files must use CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Source files
+*.py text diff=python eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+
+# Binary files
+*.bin binary
+*.label binary
+*.pt binary
+*.pth binary
+*.png binary
+*.jpg binary
+*.ico binary

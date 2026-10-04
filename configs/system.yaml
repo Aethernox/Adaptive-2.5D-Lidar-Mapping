@@ -1,0 +1,8 @@
+# System & Hardware Configuration
+
+system:
+  device: "auto"        # 'auto', 'cuda', or 'cpu'
+  num_threads: 4
+  log_level: "INFO"
+  enable_profiling: true
+  benchmark_output_dir: "results"

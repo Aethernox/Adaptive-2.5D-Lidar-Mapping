@@ -1,0 +1,31 @@
+# Dataset Configuration for SemanticKITTI
+
+dataset:
+  name: "SemanticKITTI"
+  dataset_root: "kitti_dataset"
+  train_sequences: ["00"]
+  val_sequences: ["00"]
+  test_sequences: ["00"]
+  
+  # Max frames per split (use null for all frames)
+  max_frames:
+    debug: 100
+    small: 500
+    full: null
+  
+  # Active subset mode: 'debug', 'small', or 'full'
+  active_subset: "debug"
+  
+  # Point Cloud Preprocessing parameters
+  min_range: 1.0       # Minimum valid range in meters (ego vehicle self-occlusion mask)
+  max_range: 100.0     # Maximum valid range in meters
+  min_z: -4.0          # Minimum valid Z in meters
+  max_z: 6.0           # Maximum valid Z in meters
+  
+  # Sensor specification
+  sensor:
+    type: "Velodyne HDL-64E"
+    beams: 64
+    horizontal_fov: 360.0  # degrees
+    vertical_fov: [-24.8, 2.0] # degrees [min, max]
+    rate_hz: 10.0

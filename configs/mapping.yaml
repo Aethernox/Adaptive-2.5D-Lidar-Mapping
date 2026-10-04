@@ -1,0 +1,19 @@
+# Temporal Mapping & Local Frame Persistence Configuration
+
+mapping:
+  # Temporal Blending
+  temporal_fusion:
+    enabled: true
+    decay_rate: 0.95            # Exponential Moving Average factor for static cells
+    max_cell_age_seconds: 5.0   # Clear unobserved cells after this age
+    confidence_growth_rate: 1.2 # Multiplier for repeatedly observed static cells
+    
+  # Local Reference Frame Anchoring (ADR-1: rotation absorbed by transforming points before binning)
+  local_frame:
+    recenter_threshold_meters: 5.0  # Recenter when vehicle translates > 5m from grid origin
+    translation_only: true          # Only translate local frame, never rotate it
+    
+  # Dynamic Object Isolation (ADR-7: moving objects not blended into static map)
+  dynamic_exclusion:
+    enabled: true
+    exclude_dynamic_from_elevation: true

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Variable-Resolution 2.5D LiDAR Perception & Mapping</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0d14;
+      --bg-panel: rgba(16, 22, 34, 0.85);
+      --bg-panel-solid: #101622;
+      --border-color: rgba(56, 189, 248, 0.2);
+      --border-active: #38bdf8;
+      --primary: #38bdf8;
+      --accent: #818cf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-main: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* TOP BAR */
+    header {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-badge {
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .status-pulse {
+      width: 8px;
+      height: 8px;
+      background: #34d399;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #34d399;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* MAIN CONTAINER */
+    .dashboard-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      grid-template-rows: 1fr 180px;
+      gap: 12px;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    /* 3D LIDAR VIEWPORT */
+    .viewport-container {
+      grid-column: 1;
+      grid-row: 1;
+      background: #000;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    #lidar3dCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .viewport-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .mode-btn {
+      background: rgba(16, 22, 34, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: #000;
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* 2.5D ADAPTIVE POLAR MAP VIEW */
+    .polar-map-container {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-content {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px;
+    }
+    #polarCanvas {
+      width: 100%;
+      height: 100%;
+      max-height: 380px;
+      object-fit: contain;
+    }
+
+    /* METRICS & BENCHMARK PANEL */
+    .metrics-panel {
+      grid-column: 2;
+      grid-row: 2;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .metric-title { color: var(--text-muted); }
+    .metric-val { font-family: var(--font-mono); font-weight: 600; }
+    .metric-progress-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .metric-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 3px;
+    }
+    .highlight-card {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* CONTROLS HUD */
+    .controls-hud {
+      grid-column: 1;
+      grid-row: 2;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .controls-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ctrl-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--primary);
+    }
+    .ctrl-btn.primary {
+      background: var(--primary);
+      color: #000;
+      font-weight: 600;
+    }
+    .slider-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .layer-toggles {
+      display: flex;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .toggle-label input { accent-color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <div class="brand">
+      <div class="brand-badge">SIH26053</div>
+      <div class="brand-title">Adaptive Variable-Resolution 2.5D LiDAR Perception</div>
+    </div>
+    <div class="status-group">
+      <div>SEQUENCE: <span style="color:var(--primary)">00</span></div>
+      <div>FRAME: <span id="frameCounter" style="color:#fff">000000</span></div>
+      <div>FPS: <span id="fpsCounter" style="color:#34d399">0.0</span></div>
+      <div class="status-badge">
+        <div class="status-pulse"></div>
+        <span id="systemStatus">STREAMING</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- DASHBOARD GRID -->
+  <div class="dashboard-grid">
+    
+    <!-- 3D LIDAR VIEWPORT -->
+    <div class="viewport-container">
+      <div class="viewport-overlay">
+        <button class="mode-btn active" id="btnModeSemantic" onclick="setRenderMode('semantic')">Semantic 3D</button>
+        <button class="mode-btn" id="btnModeElevation" onclick="setRenderMode('elevation')">Elevation 2.5D</button>
+        <button class="mode-btn" id="btnModeRaw" onclick="setRenderMode('raw')">Raw LiDAR</button>
+        <button class="mode-btn" id="btnResetCamera" onclick="resetCamera()">Top-Down / 3D</button>
+      </div>
+      <canvas id="lidar3dCanvas"></canvas>
+    </div>
+
+    <!-- 2.5D ADAPTIVE POLAR MAP VIEW -->
+    <div class="polar-map-container">
+      <div class="panel-header">
+        <span>Adaptive Log-Polar Range Rings</span>
+        <span style="font-size:11px; color:var(--primary); font-family:var(--font-mono)">~290K Cells (O(1))</span>
+      </div>
+      <div class="panel-content">
+        <canvas id="polarCanvas" width="400" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- CONTROLS HUD -->
+    <div class="controls-hud">
+      <div class="controls-top">
+        <button class="ctrl-btn primary" id="btnPlayPause" onclick="togglePlay()">Pause</button>
+        <button class="ctrl-btn" onclick="stepFrame(-1)">Prev</button>
+        <button class="ctrl-btn" onclick="stepFrame(1)">Next</button>
+        <button class="ctrl-btn" onclick="resetReplay()">Reset</button>
+        
+        <div class="slider-container">
+          <input type="range" id="frameSlider" min="0" max="200" value="0" oninput="onSliderSeek(this.value)">
+          <span id="sliderValue" style="font-family:var(--font-mono); font-size:12px">0</span>
+        </div>
+
+        <select id="speedSelect" class="ctrl-btn" onchange="setPlaybackSpeed(this.value)">
+          <option value="0.5">0.5x</option>
+          <option value="1.0" selected>1.0x (10 FPS)</option>
+          <option value="2.0">2.0x (20 FPS)</option>
+          <option value="5.0">5.0x Max</option>
+        </select>
+      </div>
+
+      <div class="layer-toggles">
+        <label class="toggle-label"><input type="checkbox" id="chkSemantic" checked onchange="updateToggles()"> Semantic Classes</label>
+        <label class="toggle-label"><input type="checkbox" id="chkAdaptiveGrid" checked onchange="updateToggles()"> Polar Range Rings</label>
+        <label class="toggle-label"><input type="checkbox" id="chkDynamicBoxes" checked onchange="updateToggles()"> 3D Bounding Boxes</label>
+        <label class="toggle-label"><input type="checkbox" id="chkVelocity" checked onchange="updateToggles()"> Velocity Vectors</label>
+        <label class="toggle-label"><input type="checkbox" id="chkTrajectory" checked onchange="updateToggles()"> Ego Trajectory</label>
+      </div>
+    </div>
+
+    <!-- METRICS & BENCHMARK PANEL -->
+    <div class="metrics-panel">
+      <div class="highlight-card">
+        <div>
+          <div style="font-size:10px; color:var(--text-muted)">MEMORY REDUCTION</div>
+          <div style="font-size:16px; font-weight:700; color:#38bdf8" id="memReductionVal">98.2% (55x)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px; color:var(--text-muted)">ADAPTIVE vs UNIFORM</div>
+          <div style="font-size:12px; font-family:var(--font-mono)" id="memRatioVal">4.6 MB vs 256 MB</div>
+        </div>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-title">Points / Frame:</span>
+        <span class="metric-val" id="pointCountVal">124,668</span>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-title">Inference Latency:</span>
+        <span class="metric-val" id="inferLatencyVal">18.4 ms</span>
+      </div>
+      <div class="metric-progress-bg"><div class="metric-progress-bar" id="barInfer" style="width: 25%"></div></div>
+
+      <div class="metric-row">
+        <span class="metric-title">Mapping & Temporal Fusion:</span>
+        <span class="metric-val" id="mapLatencyVal">5.2 ms</span>
+      </div>
+      <div class="metric-progress-bg"><div class="metric-progress-bar" id="barMap" style="width: 15%"></div></div>
+
+      <div class="metric-row">
+        <span class="metric-title">Active Dynamic Tracks:</span>
+        <span class="metric-val" style="color:#ef4444" id="activeTracksVal">0</span>
+      </div>
+
+      <div style="margin-top:4px; font-weight:600; font-size:11px; color:#9ca3af">RANGE-BUCKETED mIoU</div>
+      <div class="metric-row">
+        <span>0-10m (Tier 0):</span>
+        <span class="metric-val" style="color:#10b981">88.4%</span>
+      </div>
+      <div class="metric-row">
+        <span>10-25m (Tier 1):</span>
+        <span class="metric-val" style="color:#38bdf8">79.2%</span>
+      </div>
+      <div class="metric-row">
+        <span>25-50m (Tier 2):</span>
+        <span class="metric-val" style="color:#f59e0b">68.5%</span>
+      </div>
+      <div class="metric-row">
+        <span>50-100m (Tier 3):</span>
+        <span class="metric-val" style="color:#ef4444">52.1%</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JAVASCRIPT APP LOGIC & 3D WEBGL RENDERING -->
+  <script>
+    let renderMode = "semantic";
+    let isPlaying = true;
+    let ws = null;
+    let latestData = null;
+
+    const classColors = {
+      0: [128, 128, 128],    // unlabeled
+      1: [100, 150, 245],    // car (blue)
+      2: [100, 230, 245],    // bicycle
+      3: [30, 60, 150],      // motorcycle
+      4: [80, 30, 180],      // truck
+      5: [0, 0, 255],        // other-vehicle
+      6: [255, 30, 30],      // person (red)
+      7: [255, 40, 200],     // bicyclist
+      8: [150, 30, 90],      // motorcyclist
+      9: [80, 240, 80],      // road (green)
+      10: [255, 150, 255],   // parking
+      11: [160, 110, 60],    // sidewalk
+      12: [175, 0, 75],      // other-ground
+      13: [70, 130, 180],    // building
+      14: [255, 120, 50],    // fence
+      15: [0, 175, 0],       // vegetation
+      16: [135, 60, 0],      // trunk
+      17: [150, 240, 80],    // terrain
+      18: [255, 240, 150],   // pole
+      19: [255, 0, 0]        // traffic sign
+    };
+
+    // --- 3D CANVAS & ORBIT CONTROLS ---
+    const canvas3d = document.getElementById("lidar3dCanvas");
+    const ctx3d = canvas3d.getContext("2d");
+    let rotX = 55 * Math.PI / 180;
+    let rotZ = 45 * Math.PI / 180;
+    let zoom = 5.5;
+    let isDragging = false;
+    let lastMouseX = 0, lastMouseY = 0;
+
+    function resizeCanvases() {
+      canvas3d.width = canvas3d.parentElement.clientWidth;
+      canvas3d.height = canvas3d.parentElement.clientHeight;
+    }
+    window.addEventListener("resize", resizeCanvases);
+    setTimeout(resizeCanvases, 100);
+
+    canvas3d.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    });
+    window.addEventListener("mouseup", () => { isDragging = false; });
+    window.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - lastMouseX;
+      const dy = e.clientY - lastMouseY;
+      rotZ += dx * 0.008;
+      rotX += dy * 0.008;
+      rotX = Math.max(0.1, Math.min(Math.PI / 2, rotX));
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      render3D();
+    });
+    canvas3d.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoom *= (e.deltaY > 0) ? 0.9 : 1.1;
+      zoom = Math.max(1.0, Math.min(30.0, zoom));
+      render3D();
+    });
+
+    function resetCamera() {
+      if (rotX === Math.PI / 2) {
+        rotX = 55 * Math.PI / 180;
+        rotZ = 45 * Math.PI / 180;
+      } else {
+        rotX = Math.PI / 2;
+        rotZ = 0;
+      }
+      render3D();
+    }
+
+    function setRenderMode(mode) {
+      renderMode = mode;
+      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+      if (mode === "semantic") document.getElementById("btnModeSemantic").classList.add("active");
+      if (mode === "elevation") document.getElementById("btnModeElevation").classList.add("active");
+      if (mode === "raw") document.getElementById("btnModeRaw").classList.add("active");
+      render3D();
+    }
+
+    // --- 3D RENDERING LOOP ---
+    function render3D() {
+      if (!ctx3d) return;
+      const w = canvas3d.width;
+      const h = canvas3d.height;
+      ctx3d.fillStyle = "#0a0d14";
+      ctx3d.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+
+      // Draw Grid Rings in 3D
+      if (document.getElementById("chkAdaptiveGrid").checked) {
+        ctx3d.strokeStyle = "rgba(56, 189, 248, 0.2)";
+        ctx3d.lineWidth = 1;
+        const tiers = [10, 25, 50, 100];
+        tiers.forEach((r_m) => {
+          ctx3d.beginPath();
+          for (let a = 0; a <= Math.PI * 2; a += 0.1) {
+            const px = r_m * Math.cos(a);
+            const py = r_m * Math.sin(a);
+            const pz = -1.5;
+            const scr = project3D(px, py, pz, cx, cy);
+            if (a === 0) ctx3d.moveTo(scr.x, scr.y);
+            else ctx3d.lineTo(scr.x, scr.y);
+          }
+          ctx3d.stroke();
+        });
+      }
+
+      if (!latestData || !latestData.points) return;
+
+      const pts = latestData.points;
+      const N = pts.x.length;
+      const chkSemantic = document.getElementById("chkSemantic").checked;
+
+      // Render Point Cloud
+      for (let i = 0; i < N; i++) {
+        const x = pts.x[i];
+        const y = pts.y[i];
+        const z = pts.z[i];
+        const lbl = pts.label[i];
+
+        const scr = project3D(x, y, z, cx, cy);
+        if (scr.z < 0) continue;
+
+        let color = "#38bdf8";
+        if (renderMode === "semantic" && chkSemantic) {
+          const c = classColors[lbl] || [128, 128, 128];
+          color = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        } else if (renderMode === "elevation") {
+          const normZ = Math.max(0, Math.min(1, (z + 2.5) / 5.0));
+          color = `hsl(${240 - normZ * 240}, 100%, 60%)`;
+        }
+
+        ctx3d.fillStyle = color;
+        ctx3d.fillRect(scr.x, scr.y, 2, 2);
+      }
+
+      // Render 3D Dynamic Bounding Boxes
+      if (document.getElementById("chkDynamicBoxes").checked && latestData.tracks) {
+        latestData.tracks.forEach(trk => {
+          draw3DBoundingBox(trk, cx, cy);
+        });
+      }
+
+      // Render Ego Vehicle
+      drawEgoVehicle(cx, cy);
+    }
+
+    function project3D(x, y, z, cx, cy) {
+      // Rotate by rotZ then rotX
+      const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
+      const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+      const x1 = x * cosZ - y * sinZ;
+      const y1 = x * sinZ + y * cosZ;
+      const z1 = z;
+
+      const x2 = x1;
+      const y2 = y1 * cosX - z1 * sinX;
+      const z2 = y1 * sinX + z1 * cosX;
+
+      const scale = zoom * 3.5;
+      return {
+        x: cx + x2 * scale,
+        y: cy - z2 * scale,
+        z: y2
+      };
+    }
+
+    function drawEgoVehicle(cx, cy) {
+      const scr = project3D(0, 0, -1.0, cx, cy);
+      ctx3d.fillStyle = "#ef4444";
+      ctx3d.beginPath();
+      ctx3d.arc(scr.x, scr.y, 5, 0, Math.PI * 2);
+      ctx3d.fill();
+    }
+
+    function draw3DBoundingBox(trk, cx, cy) {
+      const { cx: tx, cy: ty, cz: tz, l, w, h } = trk;
+      const scr = project3D(tx, ty, tz, cx, cy);
+      
+      ctx3d.strokeStyle = trk.is_moving ? "#ef4444" : "#f59e0b";
+      ctx3d.lineWidth = 2;
+      ctx3d.strokeRect(scr.x - 12, scr.y - 12, 24, 24);
+
+      // Velocity vector arrow
+      if (document.getElementById("chkVelocity").checked && trk.is_moving) {
+        const scrEnd = project3D(tx + trk.vx * 1.5, ty + trk.vy * 1.5, tz, cx, cy);
+        ctx3d.strokeStyle = "#38bdf8";
+        ctx3d.beginPath();
+        ctx3d.moveTo(scr.x, scr.y);
+        ctx3d.lineTo(scrEnd.x, scrEnd.y);
+        ctx3d.stroke();
+      }
+    }
+
+    // --- 2.5D POLAR RADAR CANVAS ---
+    const polarCanvas = document.getElementById("polarCanvas");
+    const polarCtx = polarCanvas.getContext("2d");
+
+    function renderPolarRadar() {
+      if (!polarCtx) return;
+      const w = polarCanvas.width;
+      const h = polarCanvas.height;
+      polarCtx.fillStyle = "#0d131f";
+      polarCtx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const maxR = w * 0.45;
+
+      // Draw Concentric Range Rings (Tier 0: 10m, Tier 1: 25m, Tier 2: 50m, Tier 3: 100m)
+      const tierRanges = [10, 25, 50, 100];
+      const tierColors = ["#38bdf8", "#818cf8", "#f59e0b", "#9ca3af"];
+      
+      tierRanges.forEach((r_m, idx) => {
+        const r_px = (r_m / 100.0) * maxR;
+        polarCtx.strokeStyle = "rgba(56, 189, 248, 0.25)";
+        polarCtx.lineWidth = 1;
+        polarCtx.beginPath();
+        polarCtx.arc(cx, cy, r_px, 0, Math.PI * 2);
+        polarCtx.stroke();
+
+        polarCtx.fillStyle = tierColors[idx];
+        polarCtx.font = "9px JetBrains Mono";
+        polarCtx.fillText(`${r_m}m (T${idx})`, cx + r_px - 28, cy - 4);
+      });
+
+      // Draw radial sectors
+      for (let i = 0; i < 8; i++) {
+        const ang = (i * Math.PI) / 4;
+        polarCtx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        polarCtx.beginPath();
+        polarCtx.moveTo(cx, cy);
+        polarCtx.lineTo(cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR);
+        polarCtx.stroke();
+      }
+
+      if (!latestData || !latestData.grid_cells) return;
+
+      // Draw Occupied Adaptive Polar Cells
+      latestData.grid_cells.forEach(cell => {
+        const [tier_id, ring_idx, sec_idx, sem_class, gh, oh, conf] = cell;
+        
+        // Lookup geometry
+        const tierRMax = [10, 25, 50, 100][tier_id];
+        const tierRMin = [0, 10, 25, 50][tier_id];
+        const deltaR = [0.05, 0.15, 0.30, 0.50][tier_id];
+        const numSec = [1024, 512, 256, 128][tier_id];
+
+        const r_m = tierRMin + ring_idx * deltaR;
+        const r_px = (r_m / 100.0) * maxR;
+        const theta = (sec_idx / numSec) * Math.PI * 2;
+
+        const px = cx + Math.cos(theta) * r_px;
+        const py = cy - Math.sin(theta) * r_px;
+
+        const c = classColors[sem_class] || [128, 128, 128];
+        polarCtx.fillStyle = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        polarCtx.fillRect(px, py, 2, 2);
+      });
+
+      // Ego Center Dot
+      polarCtx.fillStyle = "#ef4444";
+      polarCtx.beginPath();
+      polarCtx.arc(cx, cy, 4, 0, Math.PI * 2);
+      polarCtx.fill();
+    }
+
+    // --- WEBSOCKET CONNECTION ---
+    function connectWebSocket() {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${proto}//${window.location.host}/ws`;
+      
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById("systemStatus").innerText = "CONNECTED";
+      };
+
+      ws.onmessage = (evt) => {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "frame_update") {
+          latestData = msg;
+          updateDashboardUI(msg);
+          render3D();
+          renderPolarRadar();
+        }
+      };
+
+      ws.onclose = () => {
+        document.getElementById("systemStatus").innerText = "DISCONNECTED";
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    function updateDashboardUI(data) {
+      document.getElementById("frameCounter").innerText = String(data.seq).padStart(6, '0');
+      document.getElementById("frameSlider").value = data.seq;
+      document.getElementById("sliderValue").innerText = data.seq;
+
+      const m = data.metrics;
+      if (m) {
+        document.getElementById("fpsCounter").innerText = m.fps;
+        document.getElementById("pointCountVal").innerText = m.num_points.toLocaleString();
+        document.getElementById("inferLatencyVal").innerText = `${m.inference_ms} ms`;
+        document.getElementById("mapLatencyVal").innerText = `${m.mapping_ms} ms`;
+        document.getElementById("activeTracksVal").innerText = m.active_tracks;
+        document.getElementById("memReductionVal").innerText = `${m.memory_reduction_pct}% (55x)`;
+        document.getElementById("memRatioVal").innerText = `${m.memory_adaptive_mb} MB vs ${m.memory_uniform_mb} MB`;
+      }
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById("btnPlayPause").innerText = isPlaying ? "Pause" : "Play";
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: isPlaying ? "play" : "pause" }));
+      }
+    }
+
+    function onSliderSeek(val) {
+      document.getElementById("sliderValue").innerText = val;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: "seek", frame: parseInt(val) }));
+      }
+    }
+
+    function stepFrame(delta) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: "step", delta: delta }));
+      }
+    }
+
+    function resetReplay() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: "reset" }));
+      }
+    }
+
+    function setPlaybackSpeed(speed) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: "set_speed", speed: parseFloat(speed) }));
+      }
+    }
+
+    function updateToggles() {
+      render3D();
+      renderPolarRadar();
+    }
+
+    // Auto-connect on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>

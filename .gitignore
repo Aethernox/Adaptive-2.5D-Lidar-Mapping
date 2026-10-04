@@ -1,0 +1,64 @@
+# ==============================================================================
+# Git Ignore Configuration for Adaptive LiDAR Perception & Mapping
+# ==============================================================================
+
+# 1. Dataset & Binary Point Clouds (Large Files)
+kitti_dataset/
+data/
+*.bin
+*.label
+*.pcd
+
+# 2. Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# 3. Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 4. Model Checkpoints & Weights
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+
+# 5. Logs & Experiment Artifacts
+logs/
+*.log
+events.out.tfevents.*
+runs/
+
+# 6. Benchmark Results & Output Artifacts
+results/*.csv
+results/*.json
+results/*.png
+!results/.gitkeep
+
+# 7. Environment Variables & Credentials
+.env
+.env.*
+!.env.example
+
+# 8. IDE & Operating System Artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

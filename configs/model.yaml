@@ -1,0 +1,27 @@
+# Perception Model Architecture Configuration
+# Polar Pillar Encoder + 2D/Sparse Convolutional Backbone + Segmentation Head
+
+model:
+  name: "AdaptivePolarNet"
+  num_classes: 20       # 0 = unlabeled, 1..19 = SemanticKITTI classes
+  in_channels: 9        # [r, theta, z, intensity, xc, yc, zc, xp, yp]
+  
+  # Polar Pillar Feature Net
+  pillar_encoder:
+    out_channels: 64
+    max_points_per_pillar: 32
+    max_pillars: 30000
+    use_norm: true
+    
+  # Backbone 2D / Polar ConvNet
+  backbone:
+    layer_channels: [64, 128, 256]
+    layer_strides: [1, 2, 2]
+    num_blocks: [2, 2, 2]
+    upsample_strides: [1, 2, 4]
+    upsample_channels: [128, 128, 128]
+    
+  # Segmentation Head
+  head:
+    dropout: 0.1
+    num_classes: 20

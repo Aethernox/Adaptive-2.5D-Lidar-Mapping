@@ -1,0 +1,56 @@
+# Adaptive Variable-Resolution 2.5D Grid Configuration
+
+adaptive_grid:
+  schema_version: 1
+  max_range: 100.0  # Max radial extent in meters
+  
+  # Tier schedule (half-open intervals: [min_range, max_range))
+  tiers:
+    - id: 0
+      min_range: 0.0
+      max_range: 10.0
+      radial_resolution: 0.05   # 5cm radial steps (200 rings)
+      azimuth_bins: 1024        # 1024 sectors
+      description: "Near-field high-precision manipulation/safety zone"
+
+    - id: 1
+      min_range: 10.0
+      max_range: 25.0
+      radial_resolution: 0.15   # 15cm radial steps (100 rings)
+      azimuth_bins: 512         # 512 sectors
+      description: "Mid-near navigation and path planning zone"
+
+    - id: 2
+      min_range: 25.0
+      max_range: 50.0
+      radial_resolution: 0.30   # 30cm radial steps (83 rings)
+      azimuth_bins: 256         # 256 sectors
+      description: "Mid-far situational awareness zone"
+
+    - id: 3
+      min_range: 50.0
+      max_range: 100.0
+      radial_resolution: 0.50   # 50cm radial steps (100 rings)
+      azimuth_bins: 128         # 128 sectors
+      description: "Far-field horizon obstacle detection zone"
+
+  # Cell Statistics & Aggregation Parameters
+  aggregation:
+    ground_percentile: 5.0          # 5th percentile for robust ground height
+    obstacle_percentile: 95.0       # 95th percentile for robust obstacle top height
+    min_points_for_ground: 2        # Minimum points required to fit ground
+    min_density_threshold: 0.05     # Under-sampled cells below this density marked UNKNOWN
+    overhang_min_gap: 1.5           # Vertical gap in meters to detect overhanging structures
+    
+  # Seam and Boundary Blending
+  seam_handling:
+    enable_transition_band: true
+    transition_width_m: 0.5         # 50cm transition zone across tier boundaries
+    confidence_decay_factor: 0.85
+
+# Uniform Grid Baseline Configuration (for comparative benchmarking)
+uniform_grid_baseline:
+  x_range: [-100.0, 100.0]  # 200m extent
+  y_range: [-100.0, 100.0]  # 200m extent
+  resolution: 0.05          # 5cm uniform grid -> 4000 x 4000 = 16M cells
+  bytes_per_cell: 16        # Ground(4B) + Obstacle(4B) + Class(1B) + Conf(1B) + DynId(2B) + Density(4B)

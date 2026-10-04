@@ -1,0 +1,15 @@
+# Dynamic Object Tracking Configuration
+# Kalman Filter + Hungarian / Distance Association
+
+tracking:
+  enabled: true
+  max_age_frames: 5            # Remove tracks with no detections for N frames
+  min_hits_to_confirm: 3       # Number of hits before track enters dynamic overlay
+  distance_threshold_m: 2.5    # Max centroid distance for association
+  min_velocity_threshold_mps: 0.5 # Min velocity in m/s to mark object as moving (vs parked)
+  
+  # State Vector: [x, y, z, vx, vy, vz, l, w, h, yaw]
+  kalman:
+    process_noise_pos: 0.5
+    process_noise_vel: 1.0
+    measurement_noise_pos: 0.2

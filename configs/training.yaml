@@ -1,0 +1,38 @@
+# Training Pipeline Configuration
+
+training:
+  seed: 42
+  batch_size: 2
+  num_workers: 2
+  epochs: 15
+  mixed_precision: true  # Automatic Mixed Precision (AMP) when CUDA is available
+  
+  # Optimizer
+  optimizer:
+    type: "AdamW"
+    lr: 0.002
+    weight_decay: 0.01
+    
+  # Learning Rate Scheduler
+  scheduler:
+    type: "CosineAnnealingLR"
+    T_max: 15
+    eta_min: 0.00001
+    
+  # Loss Function
+  loss:
+    type: "WeightedCrossEntropyLoss"
+    use_class_weights: true
+    use_focal_loss: true
+    focal_gamma: 2.0
+    use_distance_weighting: true
+    distance_decay_power: 0.5  # Give appropriate weight to far-range points
+    
+  # Checkpointing and Logging
+  checkpoints_dir: "checkpoints"
+  save_interval_epochs: 1
+  keep_top_k: 3
+  
+  logging:
+    tensorboard_dir: "logs/tensorboard"
+    log_interval_steps: 10

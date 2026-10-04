@@ -1,0 +1,182 @@
+# Semantic Classes Configuration
+# Mappings between Raw SemanticKITTI IDs, Model Learning IDs, and High-Level Project Categories
+
+# High-Level Project Semantic Categories
+project_categories:
+  0: "UNKNOWN"
+  1: "DRIVABLE"
+  2: "NON_DRIVABLE"
+  3: "STATIC_STRUCTURE"
+  4: "THIN_OBSTACLE"
+  5: "DYNAMIC_VEHICLE"
+  6: "DYNAMIC_PEDESTRIAN"
+
+# Project category colors (RGB in [0, 255])
+project_category_colors:
+  UNKNOWN: [128, 128, 128]          # Gray
+  DRIVABLE: [80, 240, 80]           # Bright Green
+  NON_DRIVABLE: [160, 110, 60]      # Brown / Dirt
+  STATIC_STRUCTURE: [70, 130, 180]  # Steel Blue
+  THIN_OBSTACLE: [255, 140, 0]      # Dark Orange
+  DYNAMIC_VEHICLE: [255, 40, 40]    # Vibrant Red
+  DYNAMIC_PEDESTRIAN: [255, 215, 0] # Gold / Bright Yellow
+
+# Model Learning Classes (20 classes: 0 = ignore/unlabeled, 1..19 = classes)
+learning_classes:
+  0:
+    name: "unlabeled"
+    project_category: "UNKNOWN"
+    dynamic: false
+    weight: 0.0
+    color: [0, 0, 0]
+  1:
+    name: "car"
+    project_category: "DYNAMIC_VEHICLE"
+    dynamic: true
+    weight: 1.0
+    color: [100, 150, 245]
+  2:
+    name: "bicycle"
+    project_category: "DYNAMIC_VEHICLE"
+    dynamic: true
+    weight: 2.0
+    color: [100, 230, 245]
+  3:
+    name: "motorcycle"
+    project_category: "DYNAMIC_VEHICLE"
+    dynamic: true
+    weight: 2.0
+    color: [30, 60, 150]
+  4:
+    name: "truck"
+    project_category: "DYNAMIC_VEHICLE"
+    dynamic: true
+    weight: 1.5
+    color: [80, 30, 180]
+  5:
+    name: "other-vehicle"
+    project_category: "DYNAMIC_VEHICLE"
+    dynamic: true
+    weight: 1.5
+    color: [0, 0, 255]
+  6:
+    name: "person"
+    project_category: "DYNAMIC_PEDESTRIAN"
+    dynamic: true
+    weight: 3.0
+    color: [255, 30, 30]
+  7:
+    name: "bicyclist"
+    project_category: "DYNAMIC_PEDESTRIAN"
+    dynamic: true
+    weight: 3.0
+    color: [255, 40, 200]
+  8:
+    name: "motorcyclist"
+    project_category: "DYNAMIC_PEDESTRIAN"
+    dynamic: true
+    weight: 3.0
+    color: [150, 30, 90]
+  9:
+    name: "road"
+    project_category: "DRIVABLE"
+    dynamic: false
+    weight: 0.8
+    color: [255, 0, 255]
+  10:
+    name: "parking"
+    project_category: "DRIVABLE"
+    dynamic: false
+    weight: 1.2
+    color: [255, 150, 255]
+  11:
+    name: "sidewalk"
+    project_category: "NON_DRIVABLE"
+    dynamic: false
+    weight: 0.9
+    color: [75, 0, 75]
+  12:
+    name: "other-ground"
+    project_category: "NON_DRIVABLE"
+    dynamic: false
+    weight: 1.5
+    color: [175, 0, 75]
+  13:
+    name: "building"
+    project_category: "STATIC_STRUCTURE"
+    dynamic: false
+    weight: 0.8
+    color: [255, 200, 0]
+  14:
+    name: "fence"
+    project_category: "STATIC_STRUCTURE"
+    dynamic: false
+    weight: 1.2
+    color: [255, 120, 50]
+  15:
+    name: "vegetation"
+    project_category: "STATIC_STRUCTURE"
+    dynamic: false
+    weight: 0.8
+    color: [0, 175, 0]
+  16:
+    name: "trunk"
+    project_category: "THIN_OBSTACLE"
+    dynamic: false
+    weight: 1.5
+    color: [135, 60, 0]
+  17:
+    name: "terrain"
+    project_category: "NON_DRIVABLE"
+    dynamic: false
+    weight: 0.9
+    color: [150, 240, 80]
+  18:
+    name: "pole"
+    project_category: "THIN_OBSTACLE"
+    dynamic: false
+    weight: 2.0
+    color: [255, 240, 150]
+  19:
+    name: "traffic-sign"
+    project_category: "THIN_OBSTACLE"
+    dynamic: false
+    weight: 2.0
+    color: [255, 0, 0]
+
+# Mapping from raw SemanticKITTI label IDs to learning classes (0..19)
+raw_to_learning_map:
+  0: 0      # "unlabeled"
+  1: 0      # "outlier"
+  10: 1     # "car"
+  11: 2     # "bicycle"
+  13: 5     # "bus" mapped to "other-vehicle"
+  15: 3     # "motorcycle"
+  16: 5     # "on-rails" mapped to "other-vehicle"
+  18: 4     # "truck"
+  20: 5     # "other-vehicle"
+  30: 6     # "person"
+  31: 7     # "bicyclist"
+  32: 8     # "motorcyclist"
+  40: 9     # "road"
+  44: 10    # "parking"
+  48: 11    # "sidewalk"
+  49: 12    # "other-ground"
+  50: 13    # "building"
+  51: 14    # "fence"
+  52: 13    # "other-structure" mapped to "building"
+  60: 9     # "lane-marking" mapped to "road"
+  70: 15    # "vegetation"
+  71: 16    # "trunk"
+  72: 17    # "terrain"
+  80: 18    # "pole"
+  81: 19    # "traffic-sign"
+  99: 0     # "other-object"
+  252: 1    # "moving-car" -> car
+  253: 7    # "moving-bicyclist" -> bicyclist
+  254: 6    # "moving-pedestrian" -> person
+  255: 8    # "moving-motorcycle" -> motorcyclist
+  256: 5    # "moving-on-rails" -> other-vehicle
+  257: 5    # "moving-bus" -> other-vehicle
+  258: 4    # "moving-truck" -> truck
+  259: 5    # "moving-other-vehicle" -> other-vehicle

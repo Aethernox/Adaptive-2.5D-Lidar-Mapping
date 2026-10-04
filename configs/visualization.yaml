@@ -1,0 +1,19 @@
+# Visualization & Browser Dashboard Configuration
+
+visualization:
+  server:
+    host: "0.0.0.0"
+    port: 8080
+    websocket_port: 8081
+    fps_target: 30
+    binary_compression: true
+    
+  ui:
+    title: "Adaptive Variable-Resolution 2.5D LiDAR Perception"
+    theme: "dark"
+    default_view: "3d"
+    point_size: 2.0
+    grid_opacity: 0.85
+    show_trajectories: true
+    show_bounding_boxes: true
+    show_velocity_vectors: true
