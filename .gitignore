@@ -46,8 +46,6 @@ checkpoints/
 artifacts/
 outputs/
 data/datasets/
-dataset/
-datasets/
 
 # Frontend package and build caches (if a frontend toolchain is added)
 node_modules/
